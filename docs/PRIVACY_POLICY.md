@@ -1,24 +1,24 @@
-# Summit Privacy Policy
+# TrueSummit Privacy Policy
 
 **Effective date:** July 9, 2026
 **Contact:** jwelk24@gmail.com
 
-Summit is a personal finance app built privacy-first. This policy explains what data Summit handles, where it goes, and the choices you have. The short version: **your financial data is used only to power the features you see in the app — never for advertising, marketing, or sale, and all analysis happens on your device.**
+TrueSummit is a personal finance app built privacy-first. This policy explains what data TrueSummit handles, where it goes, and the choices you have. The short version: **your financial data is used only to power the features you see in the app — never for advertising, marketing, or sale, and all analysis happens on your device.**
 
-## What data Summit handles
+## What data TrueSummit handles
 
 - **Account information.** Your email address (or Apple Account identity if you use Sign in with Apple), used solely to sign you in and sync your data across your devices.
 - **Financial data you add or connect.** Accounts, balances, transactions, budgets, goals, scheduled bills, and tags — entered manually, imported from CSV, scanned from receipts, or imported from a linked bank.
-- **Bank connections (Plaid).** If you link a bank account, Plaid provides account and transaction data to the app. Your bank credentials are handled by Plaid and are never visible to Summit. Plaid's handling of your data is governed by [Plaid's End User Privacy Policy](https://plaid.com/legal/#end-user-privacy-policy).
-- **Apple Wallet data (FinanceKit).** If you choose to connect Apple Card, Apple Cash, or Apple Savings, Summit reads that data on your device through Apple's FinanceKit framework, only after you grant permission in the system prompt. This data is used exclusively for the app's financial-management features (budgets, reports, net worth, insights). It is never used for marketing or advertising, never sold, and never shared with third parties. You can revoke access at any time in iOS Settings → Privacy & Security → Wallet.
+- **Bank connections (Plaid).** If you link a bank account, Plaid provides account and transaction data to the app. Your bank credentials are handled by Plaid and are never visible to TrueSummit. Plaid's handling of your data is governed by [Plaid's End User Privacy Policy](https://plaid.com/legal/#end-user-privacy-policy).
+- **Apple Wallet data (FinanceKit).** If you choose to connect Apple Card, Apple Cash, or Apple Savings, TrueSummit reads that data on your device through Apple's FinanceKit framework, only after you grant permission in the system prompt. This data is used exclusively for the app's financial-management features (budgets, reports, net worth, insights). It is never used for marketing or advertising, never sold, and never shared with third parties. You can revoke access at any time in iOS Settings → Privacy & Security → Wallet.
 
 ## Where your data lives
 
 - **On your device.** All analysis — categorization, insights, the money coach, the financial health score, forecasts, and every AI feature — runs on-device. No transaction content is sent to any server for analysis, and nothing is used to train any model.
-- **Your synced account (optional).** By default, your data syncs to your own account on our backend (hosted on Supabase) so you can use Summit on multiple devices and share a household budget with a partner. This is storage of your data for you — it is never sold, mined, used for advertising, or shared with data brokers.
+- **Your synced account (optional).** By default, your data syncs to your own account on our backend (hosted on Supabase) so you can use TrueSummit on multiple devices and share a household budget with a partner. This is storage of your data for you — it is never sold, mined, used for advertising, or shared with data brokers.
 - **Local-Only Mode.** In Privacy & Data you can turn off cloud sync entirely. Your data then stays only on your device.
 
-## What Summit does NOT do
+## What TrueSummit does NOT do
 
 - No advertising SDKs, ad identifiers, or ad networks.
 - No third-party analytics or tracking of any kind.
@@ -40,7 +40,7 @@ Summit is a personal finance app built privacy-first. This policy explains what 
 
 ## Children
 
-Summit is not directed at children under 13 and does not knowingly collect data from them.
+TrueSummit is not directed at children under 13 and does not knowingly collect data from them.
 
 ## Changes
 
@@ -48,4 +48,4 @@ If this policy changes, the updated version will be posted at this URL with a ne
 
 ## Contact
 
-Questions about privacy in Summit: **jwelk24@gmail.com**
+Questions about privacy in TrueSummit: **jwelk24@gmail.com**

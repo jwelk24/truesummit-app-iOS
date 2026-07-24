@@ -1,14 +1,14 @@
 ---
-title: Summit — Private, on-device budgeting
+title: TrueSummit — Private, on-device budgeting
 ---
 
-# Summit
+# TrueSummit
 
 **Budget, net worth, and money insights — computed on your device, not in someone else's cloud.**
 
-Summit is a personal finance app for iPhone, iPad, and Apple Watch that gives you the whole picture of your money without giving away your data.
+TrueSummit is a personal finance app for iPhone, iPad, and Apple Watch that gives you the whole picture of your money without giving away your data.
 
-## What Summit does
+## What TrueSummit does
 
 - **Budgeting that adapts** — monthly budgets with goals, rollover, spending pace, and one-tap "stay on track" funding for savings targets.
 - **Net worth, complete** — bank, credit, investment, and manual accounts, with trends, projections, and portfolio allocation.
