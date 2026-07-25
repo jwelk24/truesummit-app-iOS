@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 import Testing
-@testable import Summit
+@testable import TrueSummit
 
 /// The 0–100 health score: savings (30) + runway (30) + card debt (25) +
 /// subscriptions (15). Deterministic, so exact totals are assertable.

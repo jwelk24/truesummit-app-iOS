@@ -1,6 +1,6 @@
 import Foundation
 import SwiftData
-@testable import Summit
+@testable import TrueSummit
 
 /// Shared fixtures for the money-math suites.
 enum TestSupport {

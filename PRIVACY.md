@@ -1,4 +1,4 @@
-# Summit — App Store Privacy Details
+# TrueSummit — App Store Privacy Details
 
 This document is the source of truth for filling in **App Store Connect →
 App Privacy**, plus reusable marketing copy. Keep it in sync with the code.
@@ -19,7 +19,7 @@ App Privacy**, plus reusable marketing copy. Keep it in sync with the code.
 ## App Privacy "nutrition label" answers
 
 ### Data used to track you
-**None.** Summit does not track users across apps/websites and has no
+**None.** TrueSummit does not track users across apps/websites and has no
 advertising or data-broker integrations.
 
 ### Data collected and linked to the user
@@ -51,7 +51,7 @@ linked to the user's account; none used for tracking.
 - **unavatar.io** — only when Merchant Logos is enabled; receives merchant names
   to return a logo image.
 
-## What Summit does NOT do
+## What TrueSummit does NOT do
 - No advertising SDKs, no ad identifiers (IDFA), no ad networks.
 - No third-party analytics/telemetry.
 - No selling or renting of user data.
@@ -63,7 +63,7 @@ linked to the user's account; none used for tracking.
 today — with AI that never leaves your iPhone."
 
 **App Store description paragraph:**
-> Summit keeps your money private. Its insights, natural-language search, and
+> TrueSummit keeps your money private. Its insights, natural-language search, and
 > money coach all run on-device with Apple Intelligence — your transactions are
 > never sent to a server for analysis and are never used to train any model.
 > Sync across your devices when you want it, switch to local-only when you don't,

@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 import Testing
-@testable import Summit
+@testable import TrueSummit
 
 /// The classification and report math everything else trusts: cash-flow
 /// kinds, income/spending totals, refund netting, split attribution, and

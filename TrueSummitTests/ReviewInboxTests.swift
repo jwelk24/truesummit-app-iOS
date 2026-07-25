@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 import Testing
-@testable import Summit
+@testable import TrueSummit
 
 @MainActor
 struct ReviewInboxTests {

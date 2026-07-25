@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 import Testing
-@testable import Summit
+@testable import TrueSummit
 
 /// Guardrails for the computations that view bodies run over the full
 /// transaction array, at the scale a five-year Plaid user brings (~12k

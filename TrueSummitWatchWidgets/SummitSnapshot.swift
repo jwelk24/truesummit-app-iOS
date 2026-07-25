@@ -33,7 +33,7 @@ struct SummitSnapshot: Codable {
     let healthGrade: String?
     let healthDelta: Int?
 
-    static let appGroupID = "group.com.welker.Summit"
+    static let appGroupID = "group.com.welker.TrueSummit"
     static let snapshotFilename = "SummitSnapshot.json"
 
     static var fileURL: URL? {

@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 import Testing
-@testable import Summit
+@testable import TrueSummit
 
 /// Core envelope math plus rollover seeding — the numbers on the Budget tab.
 @MainActor

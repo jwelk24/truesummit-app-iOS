@@ -45,7 +45,7 @@ struct SummitSnapshot: Codable {
         return min(1.0, max(0.0, budgetSpent / budgetAssigned))
     }
 
-    static let appGroupID = "group.com.welker.Summit"
+    static let appGroupID = "group.com.welker.TrueSummit"
     static let snapshotFilename = "SummitSnapshot.json"
 
     static var fileURL: URL? {

@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 enum SummitSharedStore {
-    static let appGroupID = "group.com.welker.Summit"
+    static let appGroupID = "group.com.welker.TrueSummit"
     static let storeFilename = "Summit.sqlite"
 
     static var schema: Schema {

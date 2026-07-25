@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 import Testing
-@testable import Summit
+@testable import TrueSummit
 
 /// Goal pacing math — especially `neededThisMonth`, the YNAB-style
 /// even-spread calculation for by-date targets.

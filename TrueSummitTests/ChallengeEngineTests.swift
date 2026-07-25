@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 import Testing
-@testable import Summit
+@testable import TrueSummit
 
 /// Challenge verification math — progress, early failure, and wins are
 /// derived from real transactions, never self-reported.

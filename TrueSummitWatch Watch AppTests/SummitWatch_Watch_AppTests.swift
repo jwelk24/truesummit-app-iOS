@@ -6,7 +6,7 @@
 //
 
 import Testing
-@testable import SummitWatch_Watch_App
+@testable import TrueSummitWatch_Watch_App
 
 struct SummitWatch_Watch_AppTests {
 

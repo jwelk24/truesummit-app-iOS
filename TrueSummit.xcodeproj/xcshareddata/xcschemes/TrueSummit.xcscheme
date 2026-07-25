@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "9A90DFE62FD33A1400FA7078"
-               BuildableName = "Summit.app"
-               BlueprintName = "Summit"
-               ReferencedContainer = "container:Summit.xcodeproj">
+               BuildableName = "TrueSummit.app"
+               BlueprintName = "TrueSummit"
+               ReferencedContainer = "container:TrueSummit.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -30,7 +30,7 @@
       shouldUseLaunchSchemeArgsEnv = "YES">
       <TestPlans>
          <TestPlanReference
-            reference = "container:Summit.xctestplan"
+            reference = "container:TrueSummit.xctestplan"
             default = "YES">
          </TestPlanReference>
       </TestPlans>
@@ -41,9 +41,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "9A90DFF72FD33A1600FA7078"
-               BuildableName = "SummitTests.xctest"
-               BlueprintName = "SummitTests"
-               ReferencedContainer = "container:Summit.xcodeproj">
+               BuildableName = "TrueSummitTests.xctest"
+               BlueprintName = "TrueSummitTests"
+               ReferencedContainer = "container:TrueSummit.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -52,9 +52,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "9A90E0012FD33A1600FA7078"
-               BuildableName = "SummitUITests.xctest"
-               BlueprintName = "SummitUITests"
-               ReferencedContainer = "container:Summit.xcodeproj">
+               BuildableName = "TrueSummitUITests.xctest"
+               BlueprintName = "TrueSummitUITests"
+               ReferencedContainer = "container:TrueSummit.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -75,9 +75,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "9A90DFE62FD33A1400FA7078"
-            BuildableName = "Summit.app"
-            BlueprintName = "Summit"
-            ReferencedContainer = "container:Summit.xcodeproj">
+            BuildableName = "TrueSummit.app"
+            BlueprintName = "TrueSummit"
+            ReferencedContainer = "container:TrueSummit.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -92,9 +92,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "9A90DFE62FD33A1400FA7078"
-            BuildableName = "Summit.app"
-            BlueprintName = "Summit"
-            ReferencedContainer = "container:Summit.xcodeproj">
+            BuildableName = "TrueSummit.app"
+            BlueprintName = "TrueSummit"
+            ReferencedContainer = "container:TrueSummit.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

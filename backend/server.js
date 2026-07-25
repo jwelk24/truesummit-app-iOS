@@ -52,7 +52,7 @@ app.post('/api/link/token/create', async (req, res) => {
         const clientUserId = req.body?.clientUserId ?? 'summit-local-user';
         const response = await plaid.linkTokenCreate({
             user: { client_user_id: clientUserId },
-            client_name: 'Summit',
+            client_name: 'TrueSummit',
             products,
             country_codes: countryCodes,
             language: PLAID_LANGUAGE,

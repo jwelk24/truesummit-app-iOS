@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import Summit
+@testable import TrueSummit
 
 @MainActor
 struct EngagementNudgesTests {
