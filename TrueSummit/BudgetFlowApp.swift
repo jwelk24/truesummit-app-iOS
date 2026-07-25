@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 enum TabKind: String, CaseIterable, Identifiable {
-    case budget, transactions, netWorth, horizon, reports, insights, settings
+    case budget, transactions, netWorth, horizon, peaks, reports, insights, settings
 
     var id: String { rawValue }
 
@@ -12,6 +12,7 @@ enum TabKind: String, CaseIterable, Identifiable {
         case .transactions: "Transactions"
         case .netWorth: "Net Worth"
         case .horizon: "Horizon"
+        case .peaks: "Your Peaks"
         case .reports: "Reports"
         case .insights: "Insights"
         case .settings: "Settings"
@@ -24,6 +25,7 @@ enum TabKind: String, CaseIterable, Identifiable {
         case .transactions: "creditcard"
         case .netWorth: "chart.line.uptrend.xyaxis"
         case .horizon: "mountain.2"
+        case .peaks: "flag.fill"
         case .reports: "chart.pie"
         case .insights: "sparkles"
         case .settings: "gearshape"
@@ -213,6 +215,7 @@ struct RootView: View {
             case .transactions: TransactionsView()
             case .netWorth: NetWorthView()
             case .horizon: HorizonView()
+            case .peaks: PeaksView()
             case .reports: ReportsView()
             case .insights: AIInsightsView()
             case .settings: SettingsView()
