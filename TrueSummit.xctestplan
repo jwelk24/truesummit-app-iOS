@@ -1,0 +1,37 @@
+{
+  "configurations" : [
+    {
+      "id" : "E70DD4E2-A5AB-422D-9DFB-A6D2D01E8799",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:TrueSummit.xcodeproj",
+      "identifier" : "9A90DFE62FD33A1400FA7078",
+      "name" : "TrueSummit"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:TrueSummit.xcodeproj",
+        "identifier" : "9A90DFF72FD33A1600FA7078",
+        "name" : "TrueSummitTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:TrueSummit.xcodeproj",
+        "identifier" : "9A90E0012FD33A1600FA7078",
+        "name" : "TrueSummitUITests"
+      }
+    }
+  ],
+  "version" : 1
+}
