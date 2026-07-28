@@ -161,15 +161,17 @@ final class GoalModel {
     var type: GoalType
     var targetAmount: Decimal
     var targetDate: Date?
+    var sortOrder: Int = 0
 
     var category: CategoryModel?
 
-    init(id: UUID = UUID(), type: GoalType, targetAmount: Decimal, targetDate: Date? = nil, category: CategoryModel? = nil) {
+    init(id: UUID = UUID(), type: GoalType, targetAmount: Decimal, targetDate: Date? = nil, category: CategoryModel? = nil, sortOrder: Int = 0) {
         self.id = id
         self.type = type
         self.targetAmount = targetAmount
         self.targetDate = targetDate
         self.category = category
+        self.sortOrder = sortOrder
     }
 }
 

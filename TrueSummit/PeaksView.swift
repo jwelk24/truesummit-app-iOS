@@ -6,12 +6,13 @@ import SwiftData
 struct PeaksView: View {
     @Environment(BudgetEngine.self) private var engine
 
-    @Query private var goals: [GoalModel]
+    @Query(sort: \GoalModel.sortOrder) private var goals: [GoalModel]
     @Query private var months: [BudgetMonthModel]
 
     @AppStorage("peaksTitle") private var peaksTitle = "Your Peaks"
 
     @State private var showingAddPeak = false
+    @State private var showingReorder = false
 
     private var currentMonth: BudgetMonthModel? {
         months.first { $0.year == engine.selectedYear && $0.month == engine.selectedMonth }
@@ -85,9 +86,20 @@ struct PeaksView: View {
                         Label("New Peak", systemImage: "plus")
                     }
                 }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button {
+                        showingReorder = true
+                    } label: {
+                        Label("Reorder", systemImage: "arrow.up.arrow.down")
+                    }
+                    .disabled(activeGoals.count < 2)
+                }
             }
             .sheet(isPresented: $showingAddPeak) {
                 AddPeakSheet()
+            }
+            .sheet(isPresented: $showingReorder) {
+                ReorderPeaksSheet()
             }
         }
     }
@@ -121,7 +133,9 @@ struct PeakCard: View {
     let month: Int
     let allMonths: [BudgetMonthModel]
 
+    @Environment(\.modelContext) private var context
     @State private var showingDetail = false
+    @State private var showingDeleteAlert = false
 
     private var category: CategoryModel? { goal.category }
 
@@ -218,6 +232,25 @@ struct PeakCard: View {
             cardContent
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button(role: .destructive) {
+                showingDeleteAlert = true
+            } label: {
+                Label("Delete Peak", systemImage: "trash")
+            }
+        }
+        .confirmationDialog(
+            "Delete \"\(category?.name ?? "this peak")\"?",
+            isPresented: $showingDeleteAlert,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Peak", role: .destructive) {
+                context.delete(goal)
+                try? context.save()
+            }
+        } message: {
+            Text("The savings category and its budget history will remain in the Budget tab.")
+        }
         .sheet(isPresented: $showingDetail) {
             if let cat = category {
                 CategoryDetailSheet(
@@ -310,6 +343,7 @@ struct AddPeakSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @Query private var groups: [CategoryGroupModel]
+    @Query private var allGoals: [GoalModel]
 
     @State private var name = ""
     @State private var targetAmountText = ""
@@ -402,16 +436,75 @@ struct AddPeakSheet: View {
         )
         context.insert(category)
 
+        let nextOrder = (allGoals.map(\.sortOrder).max() ?? -1) + 1
         let goal = GoalModel(
             type: useTargetDate ? .byDateTarget : .savingsTarget,
             targetAmount: amount,
             targetDate: useTargetDate ? targetDate : nil,
-            category: category
+            category: category,
+            sortOrder: nextOrder
         )
         context.insert(goal)
 
         try? context.save()
         dismiss()
+    }
+}
+
+// MARK: - ReorderPeaksSheet
+
+struct ReorderPeaksSheet: View {
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+
+    @Query(sort: \GoalModel.sortOrder) private var goals: [GoalModel]
+
+    private var activeGoals: [GoalModel] {
+        goals.filter { $0.category != nil }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(activeGoals) { goal in
+                    HStack(spacing: 12) {
+                        Text(summitCategoryEmoji(goal.category?.name ?? ""))
+                            .font(.title3)
+                            .frame(width: 36, height: 36)
+                            .background(Color.accentColor.opacity(0.12),
+                                        in: RoundedRectangle(cornerRadius: 10))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(goal.category?.name ?? "Goal")
+                                .font(.headline)
+                            Text(goal.targetAmount.formatted(
+                                .currency(code: Locale.current.currency?.identifier ?? "USD")
+                                .precision(.fractionLength(0))
+                            ))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .onMove { from, to in
+                    var reordered = activeGoals
+                    reordered.move(fromOffsets: from, toOffset: to)
+                    for (i, goal) in reordered.enumerated() {
+                        goal.sortOrder = i
+                    }
+                    try? context.save()
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+            .summitListBackground()
+            .navigationTitle("Reorder Peaks")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 

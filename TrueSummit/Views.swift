@@ -2616,24 +2616,30 @@ struct NetWorthView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                NetWorthHeroCard(
-                    netWorth: netWorth,
-                    totalAssets: totalAssets,
-                    totalLiabilities: totalLiabilities,
-                    deltaVsPast: deltaVsPast,
-                    rangeLabel: rangeLabel
-                )
-                .padding(.horizontal)
-                .padding(.top, 8)
+            List {
+                Section {
+                    NetWorthHeroCard(
+                        netWorth: netWorth,
+                        totalAssets: totalAssets,
+                        totalLiabilities: totalLiabilities,
+                        deltaVsPast: deltaVsPast,
+                        rangeLabel: rangeLabel
+                    )
+                    .listRowInsets(.init())
+                    .listRowSeparator(.hidden)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
 
-                if let milestone = netWorthMilestone {
-                    NetWorthMilestoneCard(milestone: milestone)
-                        .padding(.horizontal)
+                    if let milestone = netWorthMilestone {
+                        NetWorthMilestoneCard(milestone: milestone)
+                            .listRowInsets(.init())
+                            .listRowSeparator(.hidden)
+                            .padding(.horizontal)
+                    }
                 }
+                .listRowBackground(Color.clear)
 
-                List {
-                    Section {
+                Section {
                     HStack {
                         Picker("Range", selection: $timeRange) {
                             ForEach(NetWorthTimeRange.allCases) { r in
@@ -2782,8 +2788,7 @@ struct NetWorthView: View {
                 }
                 }
                 .summitListBackground()
-            }
-            .summitReadableWidth()
+                .summitReadableWidth()
             .navigationTitle(netWorthTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -5593,6 +5598,29 @@ struct ReportsView: View {
                             .padding(.vertical, 4)
                     } header: {
                         SummitSectionHeader(title: "Spending Flow", systemImage: "arrow.triangle.branch")
+                    }
+                    .summitRowBackground()
+                }
+
+                let donutData = spendingByCategory.sorted { $0.amount > $1.amount }
+                if !donutData.isEmpty {
+                    Section {
+                        Chart(donutData) { item in
+                            SectorMark(
+                                angle: .value("Amount", item.amount),
+                                innerRadius: .ratio(0.55),
+                                angularInset: 1.5
+                            )
+                            .foregroundStyle(by: .value("Category", item.categoryName))
+                            .cornerRadius(3)
+                            .accessibilityLabel(item.categoryName)
+                            .accessibilityValue(currency(Decimal(item.amount)))
+                        }
+                        .chartLegend(position: .bottom, spacing: 10)
+                        .frame(height: 300)
+                        .padding(.vertical, 8)
+                    } header: {
+                        SummitSectionHeader(title: "Spending Breakdown", systemImage: "chart.pie.fill")
                     }
                     .summitRowBackground()
                 }

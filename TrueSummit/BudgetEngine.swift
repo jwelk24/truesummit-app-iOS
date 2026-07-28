@@ -519,10 +519,6 @@ extension BudgetEngine {
 extension BudgetEngine {
     @MainActor
     static func seedIfNeeded(context: ModelContext, reference: Date = Date()) {
-        // Brand-new users build their own accounts and budget in the first-run
-        // wizard, so the automatic launch seed must not populate samples until
-        // onboarding is finished. The Skip path sets this flag first, so its
-        // own explicit call still seeds.
         guard OnboardingState.hasCompletedWelcome else { return }
         let accountCount = (try? context.fetchCount(FetchDescriptor<AccountModel>())) ?? 0
         guard accountCount == 0 else { return }
@@ -530,69 +526,379 @@ extension BudgetEngine {
         let cal = Calendar.current
         let comps = cal.dateComponents([.year, .month], from: reference)
         let year = comps.year ?? 2026
-        let month = comps.month ?? 1
+        let month = comps.month ?? 7
+        let prevMonth = month == 1 ? 12 : month - 1
+        let prevYear = month == 1 ? year - 1 : year
 
-        let checking = AccountModel(name: "Checking", type: .checking, balance: 3800)
-        let savings = AccountModel(name: "Savings", type: .savings, balance: 5000)
-        let creditCard = AccountModel(name: "Credit Card", type: .creditCard, balance: -450)
-        [checking, savings, creditCard].forEach { context.insert($0) }
+        func ago(_ days: Int) -> Date {
+            cal.date(byAdding: .day, value: -days, to: reference) ?? reference
+        }
+        func prevDate(_ day: Int) -> Date {
+            cal.date(from: DateComponents(year: prevYear, month: prevMonth, day: day)) ?? reference
+        }
 
-        let needs = CategoryGroupModel(name: "Needs (Fixed Expenses)", sort: 0)
-        let wants = CategoryGroupModel(name: "Wants (Flexible Expenses)", sort: 1)
-        let savingsDebt = CategoryGroupModel(name: "Savings & Debt", sort: 2)
-        let cardPayments = CategoryGroupModel(name: "Credit Card Payments", sort: 3)
-        [needs, wants, savingsDebt, cardPayments].forEach { context.insert($0) }
+        // MARK: Accounts
+        let checking = AccountModel(name: "Chase Checking", type: .checking, balance: 4840)
+        let savings = AccountModel(name: "High-Yield Savings", type: .savings, balance: 17450)
+        let creditCard = AccountModel(name: "Visa Signature", type: .creditCard, balance: -1230)
+        let investment = AccountModel(name: "Brokerage", type: .investment, balance: 34200)
+        [checking, savings, creditCard, investment].forEach { context.insert($0) }
 
-        let creditCardCat = CategoryModel(name: creditCard.name, sort: 0, group: cardPayments, linkedAccount: creditCard)
-        context.insert(creditCardCat)
+        // MARK: Category groups
+        let needs = CategoryGroupModel(name: "Fixed Expenses", sort: 0)
+        let wants = CategoryGroupModel(name: "Flexible Spending", sort: 1)
+        let goalsGroup = CategoryGroupModel(name: "Goals", sort: 2)
+        let savingsDebt = CategoryGroupModel(name: "Savings & Debt", sort: 3)
+        let cardPayments = CategoryGroupModel(name: "Credit Card Payments", sort: 4)
+        [needs, wants, goalsGroup, savingsDebt, cardPayments].forEach { context.insert($0) }
 
+        // MARK: Categories — fixed
         let housing = CategoryModel(name: "Housing", sort: 0, group: needs)
-        let utilitiesCat = CategoryModel(name: "Utilities", sort: 1, group: needs)
+        let utilities = CategoryModel(name: "Utilities", sort: 1, group: needs)
         let groceries = CategoryModel(name: "Groceries", sort: 2, group: needs)
-        let transportation = CategoryModel(name: "Transportation", sort: 3, group: needs)
+        let transport = CategoryModel(name: "Transportation", sort: 3, group: needs)
         let insurance = CategoryModel(name: "Insurance", sort: 4, group: needs)
+        let internet = CategoryModel(name: "Internet", sort: 5, group: needs)
+        let phone = CategoryModel(name: "Phone", sort: 6, group: needs)
 
-        let diningEntertainment = CategoryModel(name: "Dining Out & Entertainment", sort: 0, group: wants)
+        // MARK: Categories — flexible
+        let dining = CategoryModel(name: "Dining Out", sort: 0, group: wants)
         let subscriptions = CategoryModel(name: "Subscriptions", sort: 1, group: wants)
-        let personalCare = CategoryModel(name: "Personal Care & Clothing", sort: 2, group: wants)
+        let personalCare = CategoryModel(name: "Personal Care", sort: 2, group: wants)
         let travel = CategoryModel(name: "Vacation & Travel", sort: 3, group: wants)
-        let gifts = CategoryModel(name: "Gifts & Donations", sort: 4, group: wants)
+        let entertainment = CategoryModel(name: "Entertainment", sort: 4, group: wants)
+        let shopping = CategoryModel(name: "Shopping", sort: 5, group: wants)
+        let gifts = CategoryModel(name: "Gifts & Giving", sort: 6, group: wants)
 
-        let debtRepayment = CategoryModel(name: "Debt Repayment", sort: 0, group: savingsDebt)
-        let savingsInvestments = CategoryModel(name: "Savings & Investments", sort: 1, group: savingsDebt)
+        // MARK: Categories — goals (shown on Peaks tab)
+        let japanCat = CategoryModel(name: "Japan Trip", sort: 0, group: goalsGroup)
+        let downPaymentCat = CategoryModel(name: "House Down Payment", sort: 1, group: goalsGroup)
+        let guitarCat = CategoryModel(name: "Gibson Les Paul", sort: 2, group: goalsGroup)
 
-        let allCategories = [
-            housing, utilitiesCat, groceries, transportation, insurance,
-            diningEntertainment, subscriptions, personalCare, travel, gifts,
-            debtRepayment, savingsInvestments,
+        // MARK: Categories — savings & debt
+        let emergencyFund = CategoryModel(name: "Emergency Fund", sort: 0, group: savingsDebt)
+        let debtRepayment = CategoryModel(name: "Debt Repayment", sort: 1, group: savingsDebt)
+
+        // MARK: Categories — credit card
+        let ccCat = CategoryModel(name: creditCard.name, sort: 0, group: cardPayments, linkedAccount: creditCard)
+
+        let allCategories: [CategoryModel] = [
+            housing, utilities, groceries, transport, insurance, internet, phone,
+            dining, subscriptions, personalCare, travel, entertainment, shopping, gifts,
+            japanCat, downPaymentCat, guitarCat,
+            emergencyFund, debtRepayment, ccCat,
         ]
         allCategories.forEach { context.insert($0) }
 
+        // MARK: Savings goals (Peaks tab)
+        // Japan Trip: 67% complete ($4,020 of $6,000), target date ~8 months out
+        let japanTarget = cal.date(from: DateComponents(year: year, month: min(month + 8, 12), day: 1))
+            ?? cal.date(from: DateComponents(year: year + 1, month: 3, day: 1))
+            ?? reference
+        let goalJapan = GoalModel(type: .byDateTarget, targetAmount: 6000, targetDate: japanTarget, category: japanCat)
+        // House Down Payment: 34% complete ($17,000 of $50,000)
+        let goalDownPayment = GoalModel(type: .savingsTarget, targetAmount: 50000, category: downPaymentCat)
+        // Gibson Les Paul: 12% complete ($300 of $2,500)
+        let goalGuitar = GoalModel(type: .savingsTarget, targetAmount: 2500, category: guitarCat)
+        // Budget goals
         let goalHousing = GoalModel(type: .monthlyAmount, targetAmount: 1800, category: housing)
-        let goalGroceries = GoalModel(type: .monthlyAmount, targetAmount: 500, category: groceries)
-        let goalSavings = GoalModel(type: .monthlyAmount, targetAmount: 400, category: savingsInvestments)
-        [goalHousing, goalGroceries, goalSavings].forEach { context.insert($0) }
+        let goalGroceries = GoalModel(type: .monthlyAmount, targetAmount: 600, category: groceries)
+        [goalJapan, goalDownPayment, goalGuitar, goalHousing, goalGroceries].forEach { context.insert($0) }
 
-        let paycheckDate = cal.date(byAdding: .day, value: 3, to: reference) ?? reference
-        let housingDate = cal.date(byAdding: .day, value: 10, to: reference) ?? reference
-        let utilitiesDate = cal.date(byAdding: .day, value: 15, to: reference) ?? reference
+        // MARK: Budget months
+        // carryover = total_allocated − monthly_income, making "ready to assign" = $0
+        // (every dollar has a job). The carryover represents accumulated savings from
+        // prior months that are re-assigned to goal categories each month — correct
+        // YNAB-style behaviour.
+        let monthRec = BudgetMonthModel(year: year, month: month, carryover: 22365)
+        let prevMonthRec = BudgetMonthModel(year: prevYear, month: prevMonth, carryover: 20650)
+        [monthRec, prevMonthRec].forEach { context.insert($0) }
 
-        let paycheck = ScheduledItemModel(kind: .paycheck, name: "Paycheck", amount: 2000, nextDate: paycheckDate, intervalDays: 14, account: checking)
-        let housingBill = ScheduledItemModel(kind: .bill, name: "Rent", amount: -1800, nextDate: housingDate, intervalDays: 30, account: checking, category: housing)
-        let utilitiesBill = ScheduledItemModel(kind: .bill, name: "Utilities", amount: -180, nextDate: utilitiesDate, intervalDays: 30, account: checking, category: utilitiesCat)
-        [paycheck, housingBill, utilitiesBill].forEach { context.insert($0) }
+        // MARK: Budget allocations — current month
+        // Goal categories: allocation = total accumulated savings so the Peaks
+        // progress bars render correctly on first launch.
+        let curAllocs: [(CategoryModel, Decimal)] = [
+            (housing, 1800), (utilities, 180), (groceries, 600), (transport, 300),
+            (insurance, 200), (internet, 65), (phone, 85),
+            (dining, 350), (subscriptions, 85), (personalCare, 100),
+            (travel, 300), (entertainment, 150), (shopping, 300), (gifts, 100),
+            (japanCat, 4020), (downPaymentCat, 17000), (guitarCat, 300),
+            (emergencyFund, 500), (debtRepayment, 500), (ccCat, 1230),
+        ]
+        for (cat, amt) in curAllocs {
+            context.insert(BudgetAllocationModel(amount: amt, category: cat, month: monthRec))
+        }
 
-        let tx1 = TransactionModel(date: reference, amount: 2500, merchant: "Employer", cleared: true, account: checking)
-        let tx2 = TransactionModel(date: reference, amount: -120, merchant: "Whole Foods", cleared: true, account: checking, category: groceries)
-        let tx3 = TransactionModel(date: reference, amount: -45, merchant: "Chipotle", cleared: true, account: checking, category: diningEntertainment)
-        [tx1, tx2, tx3].forEach { context.insert($0) }
+        // MARK: Budget allocations — previous month
+        let prevAllocs: [(CategoryModel, Decimal)] = [
+            (housing, 1800), (utilities, 165), (groceries, 600), (transport, 300),
+            (insurance, 200), (internet, 65), (phone, 85),
+            (dining, 350), (subscriptions, 85), (personalCare, 80),
+            (travel, 300), (entertainment, 150), (shopping, 200), (gifts, 50),
+            (japanCat, 3520), (downPaymentCat, 16200), (guitarCat, 200),
+            (emergencyFund, 500), (debtRepayment, 500), (ccCat, 1100),
+        ]
+        for (cat, amt) in prevAllocs {
+            context.insert(BudgetAllocationModel(amount: amt, category: cat, month: prevMonthRec))
+        }
 
-        let monthRec = BudgetMonthModel(year: year, month: month, carryover: 0)
-        context.insert(monthRec)
-        let allocHousing = BudgetAllocationModel(amount: 1800, category: housing, month: monthRec)
-        let allocGroceries = BudgetAllocationModel(amount: 300, category: groceries, month: monthRec)
-        let allocSavings = BudgetAllocationModel(amount: 400, category: savingsInvestments, month: monthRec)
-        [allocHousing, allocGroceries, allocSavings].forEach { context.insert($0) }
+        // MARK: Scheduled items
+        [
+            ScheduledItemModel(kind: .paycheck, name: "Paycheck - Acme Corp", amount: 2900,
+                nextDate: ago(-5), intervalDays: 14, account: checking),
+            ScheduledItemModel(kind: .bill, name: "Rent", amount: -1800,
+                nextDate: ago(-8), intervalDays: 30, account: checking, category: housing),
+            ScheduledItemModel(kind: .bill, name: "Electric & Gas", amount: -135,
+                nextDate: ago(-12), intervalDays: 30, account: checking, category: utilities),
+            ScheduledItemModel(kind: .subscription, name: "Comcast Internet", amount: -65,
+                nextDate: ago(-15), intervalDays: 30, account: checking, category: internet),
+            ScheduledItemModel(kind: .subscription, name: "T-Mobile", amount: -85,
+                nextDate: ago(-18), intervalDays: 30, account: checking, category: phone),
+            ScheduledItemModel(kind: .subscription, name: "Equinox", amount: -85,
+                nextDate: ago(-20), intervalDays: 30, account: creditCard, category: subscriptions),
+        ].forEach { context.insert($0) }
+
+        // MARK: Transactions — current month
+        func tx(_ days: Int, _ amount: Decimal, _ merchant: String,
+                 _ acct: AccountModel, _ cat: CategoryModel?) -> TransactionModel {
+            TransactionModel(date: ago(days), amount: amount, merchant: merchant,
+                             cleared: true, account: acct, category: cat)
+        }
+        let currentTxs: [TransactionModel] = [
+            tx(0,   -7.50,   "Blue Bottle Coffee",      checking,   dining),
+            tx(0,   -4.90,   "BART Transit",            checking,   transport),
+            tx(1,   2900,    "Acme Corp — Paycheck",    checking,   nil),
+            tx(1,   -68.40,  "Whole Foods Market",      checking,   groceries),
+            tx(1,   -94.00,  "Nobu Downtown",           creditCard, dining),
+            tx(2,   -11.99,  "Spotify",                 creditCard, subscriptions),
+            tx(2,   -52.00,  "Shell Gas Station",       checking,   transport),
+            tx(2,   -85.00,  "Equinox",                 creditCard, subscriptions),
+            tx(3,   -42.50,  "Trader Joe's",            checking,   groceries),
+            tx(3,   -18.00,  "AMC Theaters",            creditCard, entertainment),
+            tx(4,   -130.00, "Target",                  creditCard, shopping),
+            tx(4,   -9.99,   "Netflix",                 creditCard, subscriptions),
+            tx(5,   -54.00,  "Cheesecake Factory",      creditCard, dining),
+            tx(5,   -22.00,  "Lyft",                    checking,   transport),
+            tx(6,   -89.20,  "Safeway",                 checking,   groceries),
+            tx(7,   2900,    "Acme Corp — Paycheck",    checking,   nil),
+            tx(7,   -1800.00,"Bay Properties — Rent",   checking,   housing),
+            tx(8,   -65.00,  "Comcast",                 checking,   internet),
+            tx(8,   -85.00,  "T-Mobile",                checking,   phone),
+            tx(9,   -38.50,  "Zara",                    creditCard, shopping),
+            tx(9,   -46.00,  "Sushi Ran",               creditCard, dining),
+            tx(10,  -15.00,  "Regal Cinemas",           creditCard, entertainment),
+            tx(11,  -72.30,  "Whole Foods Market",      checking,   groceries),
+            tx(12,  -200.00, "Progressive Insurance",   checking,   insurance),
+            tx(13,  -28.00,  "Uber",                    checking,   transport),
+            tx(14,  -41.00,  "CVS Pharmacy",            checking,   personalCare),
+            tx(15,  -135.00, "PG&E",                    checking,   utilities),
+            tx(16,  -55.00,  "Zuni Cafe",               creditCard, dining),
+            tx(17,  -107.00, "Amazon",                  creditCard, shopping),
+            tx(18,  -31.20,  "Trader Joe's",            checking,   groceries),
+        ]
+        currentTxs.forEach { context.insert($0) }
+
+        // MARK: Transactions — previous month (for reports & comparisons)
+        let prevTxs: [TransactionModel] = [
+            TransactionModel(date: prevDate(1),  amount: 2900,    merchant: "Acme Corp — Paycheck",    cleared: true, account: checking,   category: nil),
+            TransactionModel(date: prevDate(1),  amount: -1800,   merchant: "Bay Properties — Rent",   cleared: true, account: checking,   category: housing),
+            TransactionModel(date: prevDate(3),  amount: -82.00,  merchant: "Whole Foods Market",      cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: prevDate(5),  amount: -47.00,  merchant: "Chipotle",                cleared: true, account: creditCard, category: dining),
+            TransactionModel(date: prevDate(6),  amount: -65.00,  merchant: "Comcast",                 cleared: true, account: checking,   category: internet),
+            TransactionModel(date: prevDate(7),  amount: -85.00,  merchant: "T-Mobile",                cleared: true, account: checking,   category: phone),
+            TransactionModel(date: prevDate(8),  amount: -200.00, merchant: "Progressive Insurance",   cleared: true, account: checking,   category: insurance),
+            TransactionModel(date: prevDate(9),  amount: -28.50,  merchant: "Starbucks",               cleared: true, account: creditCard, category: dining),
+            TransactionModel(date: prevDate(10), amount: -11.99,  merchant: "Spotify",                 cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: prevDate(10), amount: -85.00,  merchant: "Equinox",                 cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: prevDate(12), amount: -9.99,   merchant: "Netflix",                 cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: prevDate(14), amount: -55.00,  merchant: "Trader Joe's",            cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: prevDate(15), amount: 2900,    merchant: "Acme Corp — Paycheck",    cleared: true, account: checking,   category: nil),
+            TransactionModel(date: prevDate(15), amount: -124.00, merchant: "PG&E",                    cleared: true, account: checking,   category: utilities),
+            TransactionModel(date: prevDate(16), amount: -38.00,  merchant: "Lyft",                    cleared: true, account: checking,   category: transport),
+            TransactionModel(date: prevDate(17), amount: -75.00,  merchant: "Zara",                    cleared: true, account: creditCard, category: shopping),
+            TransactionModel(date: prevDate(18), amount: -89.00,  merchant: "Nobu Downtown",           cleared: true, account: creditCard, category: dining),
+            TransactionModel(date: prevDate(20), amount: -15.00,  merchant: "AMC Theaters",            cleared: true, account: creditCard, category: entertainment),
+            TransactionModel(date: prevDate(21), amount: -66.20,  merchant: "Safeway",                 cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: prevDate(22), amount: -32.00,  merchant: "Shell Gas Station",       cleared: true, account: checking,   category: transport),
+            TransactionModel(date: prevDate(25), amount: -120.00, merchant: "Amazon",                  cleared: true, account: creditCard, category: shopping),
+            TransactionModel(date: prevDate(27), amount: -22.00,  merchant: "CVS Pharmacy",            cleared: true, account: checking,   category: personalCare),
+            TransactionModel(date: prevDate(28), amount: -50.00,  merchant: "Birthday Gift",           cleared: true, account: creditCard, category: gifts),
+        ]
+        prevTxs.forEach { context.insert($0) }
+
+        // MARK: Historical months 2–5 months ago
+
+        // Helper: date in a given month offset from reference
+        func histDate(monthsAgo: Int, day: Int) -> Date {
+            let base = cal.date(byAdding: .month, value: -monthsAgo, to: reference) ?? reference
+            let c = cal.dateComponents([.year, .month], from: base)
+            return cal.date(from: DateComponents(year: c.year, month: c.month, day: day)) ?? reference
+        }
+        func histMonth(monthsAgo: Int, carryover: Decimal) -> BudgetMonthModel {
+            let base = cal.date(byAdding: .month, value: -monthsAgo, to: reference) ?? reference
+            let c = cal.dateComponents([.year, .month], from: base)
+            return BudgetMonthModel(year: c.year ?? year, month: c.month ?? month, carryover: carryover)
+        }
+
+        // Goal savings accumulated totals — show steady climb over the 6 months
+        // index 0 = 5 months ago (oldest), index 3 = 2 months ago
+        let goalHistory: [(japan: Decimal, dp: Decimal, guitar: Decimal)] = [
+            (1520, 11400,  0),   // 5 months ago
+            (2020, 12200,  0),   // 4 months ago
+            (2520, 13400, 50),   // 3 months ago
+            (3020, 14600, 100),  // 2 months ago
+        ]
+        // Dining variation so the reports donut/bar charts look lively
+        let diningAlloc:   [Decimal] = [280, 320, 260, 340]
+        let shoppingAlloc: [Decimal] = [180, 220, 160, 200]
+        let travelAlloc:   [Decimal] = [300, 300, 500, 300]  // big month 3 months ago (vacation)
+        let utilAlloc:     [Decimal] = [142, 128, 155, 161]
+        // carryover = total_allocated − $5,800 income for each month
+        let histCarryovers: [Decimal] = [13227, 14693, 16650, 18426]
+
+        for (idx, gt) in goalHistory.enumerated() {
+            let mAgo = 5 - idx   // 5, 4, 3, 2
+            let rec = histMonth(monthsAgo: mAgo, carryover: histCarryovers[idx])
+            context.insert(rec)
+
+            let allocs: [(CategoryModel, Decimal)] = [
+                (housing, 1800),        (utilities, utilAlloc[idx]),
+                (groceries, 600),       (transport, 300),
+                (insurance, 200),       (internet, 65),
+                (phone, 85),            (dining, diningAlloc[idx]),
+                (subscriptions, 85),    (personalCare, 80),
+                (travel, travelAlloc[idx]), (entertainment, 150),
+                (shopping, shoppingAlloc[idx]), (gifts, 40),
+                (japanCat, gt.japan),   (downPaymentCat, gt.dp),
+                (guitarCat, gt.guitar), (emergencyFund, 500),
+                (debtRepayment, 500),   (ccCat, 800 + Decimal(idx) * 100),
+            ]
+            for (cat, amt) in allocs {
+                context.insert(BudgetAllocationModel(amount: amt, category: cat, month: rec))
+            }
+        }
+
+        // Transactions for month 5 ago
+        let m5: [TransactionModel] = [
+            TransactionModel(date: histDate(monthsAgo: 5, day: 1),  amount: 2900,    merchant: "Acme Corp — Paycheck",  cleared: true, account: checking,   category: nil),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 1),  amount: -1800,   merchant: "Bay Properties — Rent", cleared: true, account: checking,   category: housing),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 2),  amount: -65,     merchant: "Comcast",               cleared: true, account: checking,   category: internet),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 2),  amount: -85,     merchant: "T-Mobile",              cleared: true, account: checking,   category: phone),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 3),  amount: -200,    merchant: "Progressive Insurance", cleared: true, account: checking,   category: insurance),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 4),  amount: -11.99,  merchant: "Spotify",               cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 4),  amount: -85,     merchant: "Equinox",               cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 5),  amount: -9.99,   merchant: "Netflix",               cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 6),  amount: -76.40,  merchant: "Safeway",               cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 8),  amount: -38.00,  merchant: "Chipotle",              cleared: true, account: creditCard, category: dining),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 10), amount: -44.00,  merchant: "Shell Gas Station",     cleared: true, account: checking,   category: transport),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 12), amount: -118.00, merchant: "PG&E",                  cleared: true, account: checking,   category: utilities),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 14), amount: -55.00,  merchant: "Trader Joe's",          cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 15), amount: 2900,    merchant: "Acme Corp — Paycheck",  cleared: true, account: checking,   category: nil),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 16), amount: -62.00,  merchant: "The Slanted Door",      cleared: true, account: creditCard, category: dining),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 18), amount: -18.00,  merchant: "Lyft",                  cleared: true, account: checking,   category: transport),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 20), amount: -92.00,  merchant: "Whole Foods Market",    cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 22), amount: -115.00, merchant: "Amazon",                cleared: true, account: creditCard, category: shopping),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 24), amount: -28.00,  merchant: "CVS Pharmacy",          cleared: true, account: checking,   category: personalCare),
+            TransactionModel(date: histDate(monthsAgo: 5, day: 26), amount: -12.00,  merchant: "Regal Cinemas",         cleared: true, account: creditCard, category: entertainment),
+        ]
+        m5.forEach { context.insert($0) }
+
+        // Transactions for month 4 ago
+        let m4: [TransactionModel] = [
+            TransactionModel(date: histDate(monthsAgo: 4, day: 1),  amount: 2900,    merchant: "Acme Corp — Paycheck",  cleared: true, account: checking,   category: nil),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 1),  amount: -1800,   merchant: "Bay Properties — Rent", cleared: true, account: checking,   category: housing),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 2),  amount: -65,     merchant: "Comcast",               cleared: true, account: checking,   category: internet),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 2),  amount: -85,     merchant: "T-Mobile",              cleared: true, account: checking,   category: phone),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 3),  amount: -200,    merchant: "Progressive Insurance", cleared: true, account: checking,   category: insurance),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 4),  amount: -11.99,  merchant: "Spotify",               cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 4),  amount: -85,     merchant: "Equinox",               cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 5),  amount: -9.99,   merchant: "Netflix",               cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 6),  amount: -91.20,  merchant: "Whole Foods Market",    cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 8),  amount: -52.00,  merchant: "Nopa",                  cleared: true, account: creditCard, category: dining),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 9),  amount: -31.50,  merchant: "Starbucks",             cleared: true, account: creditCard, category: dining),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 11), amount: -38.00,  merchant: "Shell Gas Station",     cleared: true, account: checking,   category: transport),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 13), amount: -102.00, merchant: "PG&E",                  cleared: true, account: checking,   category: utilities),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 15), amount: 2900,    merchant: "Acme Corp — Paycheck",  cleared: true, account: checking,   category: nil),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 15), amount: -63.50,  merchant: "Safeway",               cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 17), amount: -78.00,  merchant: "Nobu Downtown",         cleared: true, account: creditCard, category: dining),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 19), amount: -25.00,  merchant: "Lyft",                  cleared: true, account: checking,   category: transport),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 21), amount: -165.00, merchant: "Nordstrom Rack",        cleared: true, account: creditCard, category: shopping),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 23), amount: -49.00,  merchant: "Trader Joe's",          cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 25), amount: -35.00,  merchant: "AMC Theaters",          cleared: true, account: creditCard, category: entertainment),
+            TransactionModel(date: histDate(monthsAgo: 4, day: 27), amount: -18.00,  merchant: "CVS Pharmacy",          cleared: true, account: checking,   category: personalCare),
+        ]
+        m4.forEach { context.insert($0) }
+
+        // Transactions for month 3 ago (vacation month — higher travel/dining)
+        let m3: [TransactionModel] = [
+            TransactionModel(date: histDate(monthsAgo: 3, day: 1),  amount: 2900,    merchant: "Acme Corp — Paycheck",  cleared: true, account: checking,   category: nil),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 1),  amount: -1800,   merchant: "Bay Properties — Rent", cleared: true, account: checking,   category: housing),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 2),  amount: -65,     merchant: "Comcast",               cleared: true, account: checking,   category: internet),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 2),  amount: -85,     merchant: "T-Mobile",              cleared: true, account: checking,   category: phone),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 3),  amount: -200,    merchant: "Progressive Insurance", cleared: true, account: checking,   category: insurance),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 4),  amount: -11.99,  merchant: "Spotify",               cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 4),  amount: -85,     merchant: "Equinox",               cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 5),  amount: -9.99,   merchant: "Netflix",               cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 6),  amount: -425.00, merchant: "Alaska Airlines",       cleared: true, account: creditCard, category: travel),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 7),  amount: -310.00, merchant: "Marriott Hotels",       cleared: true, account: creditCard, category: travel),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 8),  amount: -74.00,  merchant: "Whole Foods Market",    cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 9),  amount: -68.00,  merchant: "Benu Restaurant",       cleared: true, account: creditCard, category: dining),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 11), amount: -42.00,  merchant: "Shell Gas Station",     cleared: true, account: checking,   category: transport),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 13), amount: -155.00, merchant: "PG&E",                  cleared: true, account: checking,   category: utilities),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 15), amount: 2900,    merchant: "Acme Corp — Paycheck",  cleared: true, account: checking,   category: nil),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 16), amount: -51.50,  merchant: "Safeway",               cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 18), amount: -88.00,  merchant: "Cotogna",               cleared: true, account: creditCard, category: dining),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 20), amount: -59.00,  merchant: "Trader Joe's",          cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 22), amount: -22.00,  merchant: "Lyft",                  cleared: true, account: checking,   category: transport),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 24), amount: -145.00, merchant: "Amazon",                cleared: true, account: creditCard, category: shopping),
+            TransactionModel(date: histDate(monthsAgo: 3, day: 26), amount: -20.00,  merchant: "Regal Cinemas",         cleared: true, account: creditCard, category: entertainment),
+        ]
+        m3.forEach { context.insert($0) }
+
+        // Transactions for month 2 ago
+        let m2: [TransactionModel] = [
+            TransactionModel(date: histDate(monthsAgo: 2, day: 1),  amount: 2900,    merchant: "Acme Corp — Paycheck",  cleared: true, account: checking,   category: nil),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 1),  amount: -1800,   merchant: "Bay Properties — Rent", cleared: true, account: checking,   category: housing),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 2),  amount: -65,     merchant: "Comcast",               cleared: true, account: checking,   category: internet),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 2),  amount: -85,     merchant: "T-Mobile",              cleared: true, account: checking,   category: phone),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 3),  amount: -200,    merchant: "Progressive Insurance", cleared: true, account: checking,   category: insurance),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 4),  amount: -11.99,  merchant: "Spotify",               cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 4),  amount: -85,     merchant: "Equinox",               cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 5),  amount: -9.99,   merchant: "Netflix",               cleared: true, account: creditCard, category: subscriptions),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 6),  amount: -84.60,  merchant: "Whole Foods Market",    cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 8),  amount: -61.00,  merchant: "Tropisueno",            cleared: true, account: creditCard, category: dining),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 9),  amount: -33.00,  merchant: "Starbucks",             cleared: true, account: creditCard, category: dining),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 11), amount: -49.00,  merchant: "Shell Gas Station",     cleared: true, account: checking,   category: transport),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 13), amount: -161.00, merchant: "PG&E",                  cleared: true, account: checking,   category: utilities),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 15), amount: 2900,    merchant: "Acme Corp — Paycheck",  cleared: true, account: checking,   category: nil),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 16), amount: -58.30,  merchant: "Safeway",               cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 17), amount: -72.00,  merchant: "Nobu Downtown",         cleared: true, account: creditCard, category: dining),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 19), amount: -174.00, merchant: "Anthropologie",         cleared: true, account: creditCard, category: shopping),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 21), amount: -60.00,  merchant: "Trader Joe's",          cleared: true, account: checking,   category: groceries),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 23), amount: -15.00,  merchant: "Lyft",                  cleared: true, account: checking,   category: transport),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 25), amount: -24.00,  merchant: "AMC Theaters",          cleared: true, account: creditCard, category: entertainment),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 27), amount: -36.00,  merchant: "CVS Pharmacy",          cleared: true, account: checking,   category: personalCare),
+            TransactionModel(date: histDate(monthsAgo: 2, day: 28), amount: -75.00,  merchant: "Anniversary Dinner",    cleared: true, account: creditCard, category: dining),
+        ]
+        m2.forEach { context.insert($0) }
+
+        // MARK: Balance snapshots (net worth trend — 6 months)
+        typealias Snap = (monthsAgo: Int, checking: Decimal, savings: Decimal, cc: Decimal, inv: Decimal)
+        let snapshots: [Snap] = [
+            (5, 2800, 12000,  -890, 28500),
+            (4, 3100, 13200, -1100, 30200),
+            (3, 3400, 14100,  -750, 31400),
+            (2, 3650, 15300,  -980, 32800),
+            (1, 4200, 16500, -1230, 33600),
+            (0, 4840, 17450, -1230, 34200),
+        ]
+        for s in snapshots {
+            let d = cal.date(byAdding: .month, value: -s.monthsAgo, to: reference) ?? reference
+            context.insert(BalanceSnapshotModel(date: d, balance: s.checking, account: checking))
+            context.insert(BalanceSnapshotModel(date: d, balance: s.savings,  account: savings))
+            context.insert(BalanceSnapshotModel(date: d, balance: s.cc,       account: creditCard))
+            context.insert(BalanceSnapshotModel(date: d, balance: s.inv,      account: investment))
+        }
 
         try? context.save()
     }

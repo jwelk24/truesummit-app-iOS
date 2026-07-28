@@ -129,6 +129,27 @@ struct TourStop: Identifiable {
             ]
         ),
         TourStop(
+            tab: .peaks,
+            headline: "Chase your biggest goals.",
+            features: [
+                TourFeature(
+                    icon: "flag.fill",
+                    title: "Your Peaks",
+                    detail: "Each goal is a peak to climb — track your saved amount and projected ETA at a glance."
+                ),
+                TourFeature(
+                    icon: "plus.circle",
+                    title: "Set a new peak",
+                    detail: "Name a goal and set a target amount (and optional deadline). A savings category is created automatically."
+                ),
+                TourFeature(
+                    icon: "list.bullet.rectangle",
+                    title: "Fund in Budget",
+                    detail: "Assign money to your goal's category each month; the progress bar climbs as you save."
+                ),
+            ]
+        ),
+        TourStop(
             tab: .reports,
             headline: "Look back with clarity.",
             features: [
