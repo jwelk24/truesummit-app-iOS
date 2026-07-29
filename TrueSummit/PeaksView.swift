@@ -226,6 +226,19 @@ struct PeakCard: View {
     }
 
     var body: some View {
+        // Once the goal is deleted (see the delete action below), the parent's
+        // @Query drops it, but SwiftUI may re-evaluate this disappearing card
+        // during the removal transition. Reading a detached model's attributes
+        // (e.g. goal.type) would crash, so render nothing in that window.
+        if goal.isDeleted || goal.modelContext == nil {
+            EmptyView()
+        } else {
+            card
+        }
+    }
+
+    @ViewBuilder
+    private var card: some View {
         Button {
             if category != nil { showingDetail = true }
         } label: {
