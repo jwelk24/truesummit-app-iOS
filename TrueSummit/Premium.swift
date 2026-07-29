@@ -145,7 +145,7 @@ final class Entitlements {
         UserDefaults.standard.set(newTier.rawValue, forKey: entitlementTierKey)
     }
 
-    func startTrial(days: Int = 14) {
+    func startTrial(days: Int = 30) {
         let exp = Calendar.current.date(byAdding: .day, value: days, to: Date()) ?? Date()
         trialExpiresAt = exp
         UserDefaults.standard.set(exp, forKey: entitlementTrialKey)

@@ -191,7 +191,7 @@ extension SubscriptionTier {
 // MARK: - Trial helpers
 
 extension Product.SubscriptionInfo {
-    /// Returns a "30 days free, then $4.99/mo" style label if this product
+    /// Returns a "1 month free, then $7.99/mo" style label if this product
     /// has an introductory free-trial offer, otherwise nil.
     var introOfferLabel: String? {
         guard let offer = self.introductoryOffer, offer.paymentMode == .freeTrial else { return nil }
