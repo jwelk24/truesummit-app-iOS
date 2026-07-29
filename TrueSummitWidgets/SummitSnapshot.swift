@@ -37,6 +37,10 @@ struct SummitSnapshot: Codable {
     let healthScore: Int?
     let healthGrade: String?
     let healthDelta: Int?
+    /// 0–1 signals that drive the mountain scene: this month's savings rate
+    /// (snow depth) and the net-worth trajectory (peak height).
+    let savingsRate: Double?
+    let netWorthTrend: Double?
 
     var netWorth: Double { totalAssets - totalLiabilities }
     var budgetRemaining: Double { budgetAssigned - budgetSpent }
@@ -85,7 +89,9 @@ struct SummitSnapshot: Codable {
             ],
             healthScore: 78,
             healthGrade: "Good",
-            healthDelta: 4
+            healthDelta: 4,
+            savingsRate: 0.62,
+            netWorthTrend: 0.78
         )
     }
 }

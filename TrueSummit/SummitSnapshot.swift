@@ -40,6 +40,11 @@ nonisolated struct SummitSnapshot: Codable {
     let healthScore: Int?
     let healthGrade: String?
     let healthDelta: Int?
+    /// 0–1 signals that drive the widget's mountain scene: this month's
+    /// savings rate (snow depth) and the net-worth trajectory (peak height).
+    /// Optional so snapshots written before these existed still decode.
+    let savingsRate: Double?
+    let netWorthTrend: Double?
 
     var netWorth: Double { totalAssets - totalLiabilities }
     var budgetRemaining: Double { budgetAssigned - budgetSpent }
@@ -180,6 +185,21 @@ enum SummitSnapshotWriter {
             if prev.hasData { healthDelta = health.total - prev.total }
         }
 
+        // Mountain signals. Savings rate = (income − spending) / income for the
+        // current month; net-worth trend = where this month's net worth sits in
+        // its own 6-month range (drives the peak height).
+        let incomeTotal = txs
+            .filter { $0.amount > 0 &&
+                cal.component(.year, from: $0.date) == year &&
+                cal.component(.month, from: $0.date) == month
+            }
+            .reduce(Decimal.zero) { $0 + $1.amount }
+        let savingsRate: Double? = incomeTotal > 0
+            ? clamp01((NSDecimalNumber(decimal: incomeTotal - spentTotal).doubleValue)
+                      / NSDecimalNumber(decimal: incomeTotal).doubleValue)
+            : nil
+        let netWorthTrend = netWorthTrend(context: context, now: now)
+
         return SummitSnapshot(
             lastUpdated: Date(),
             currencyCode: currency,
@@ -195,7 +215,37 @@ enum SummitSnapshotWriter {
             quickLog: quickLog,
             healthScore: health.hasData ? health.total : nil,
             healthGrade: health.hasData ? health.grade : nil,
-            healthDelta: healthDelta
+            healthDelta: healthDelta,
+            savingsRate: savingsRate,
+            netWorthTrend: netWorthTrend
         )
     }
+
+    /// Net worth per month from balance snapshots, normalized to where the
+    /// latest month sits within its own trailing 6-month range (0…1). A flat
+    /// or too-short history returns a pleasant mid-height default; no history
+    /// returns nil so the mountain falls back to its own default.
+    private static func netWorthTrend(context: ModelContext, now: Date) -> Double? {
+        let snaps = (try? context.fetch(FetchDescriptor<BalanceSnapshotModel>())) ?? []
+        guard !snaps.isEmpty else { return nil }
+        let cal = Calendar.current
+
+        var byMonth: [DateComponents: Decimal] = [:]
+        for s in snaps {
+            guard let acct = s.account else { continue }
+            let key = cal.dateComponents([.year, .month], from: s.date)
+            byMonth[key, default: 0] += acct.type.isAsset ? s.balance : -abs(s.balance)
+        }
+        guard !byMonth.isEmpty else { return nil }
+
+        let series = byMonth
+            .sorted { (cal.date(from: $0.key) ?? .distantPast) < (cal.date(from: $1.key) ?? .distantPast) }
+            .map { NSDecimalNumber(decimal: $0.value).doubleValue }
+        let window = Array(series.suffix(6))
+        guard let latest = window.last, let lo = window.min(), let hi = window.max() else { return nil }
+        guard hi - lo > 1 else { return 0.6 }
+        return clamp01((latest - lo) / (hi - lo))
+    }
 }
+
+private func clamp01(_ value: Double) -> Double { min(max(value, 0), 1) }
