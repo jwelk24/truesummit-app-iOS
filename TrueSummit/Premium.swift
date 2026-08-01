@@ -670,3 +670,10 @@ struct LockedFeatureCard: View {
         .frame(maxWidth: .infinity)
     }
 }
+
+// MARK: - Previews
+
+#Preview("Paywall") {
+    PaywallView()
+        .preferredColorScheme(.dark)
+}
