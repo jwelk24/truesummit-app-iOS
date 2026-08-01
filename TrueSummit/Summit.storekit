@@ -17,7 +17,7 @@
     {
       "id" : "5F4D8B22-9C7E-4E1A-AA15-7B16F4D2D101",
       "localizations" : [],
-      "name" : "Summit Subscriptions",
+      "name" : "TrueSummit Subscriptions",
       "subscriptions" : [
         {
           "adHocOffers" : [],
@@ -34,13 +34,13 @@
           "localizations" : [
             {
               "description" : "Connect up to 15 bank accounts, sync across devices, and plan 30 days ahead.",
-              "displayName" : "Summit Pro Monthly",
+              "displayName" : "TrueSummit Pro Monthly",
               "locale" : "en_US"
             }
           ],
           "productID" : "com.welker.TrueSummit.pro.monthly",
           "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Summit Pro Monthly",
+          "referenceName" : "TrueSummit Pro Monthly",
           "subscriptionGroupID" : "5F4D8B22-9C7E-4E1A-AA15-7B16F4D2D101",
           "type" : "RecurringSubscription"
         },
@@ -58,14 +58,14 @@
           },
           "localizations" : [
             {
-              "description" : "Summit Pro for a full year — save 28% versus monthly.",
-              "displayName" : "Summit Pro Yearly",
+              "description" : "TrueSummit Pro for a full year — save 28% versus monthly.",
+              "displayName" : "TrueSummit Pro Yearly",
               "locale" : "en_US"
             }
           ],
           "productID" : "com.welker.TrueSummit.pro.yearly",
           "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "Summit Pro Yearly",
+          "referenceName" : "TrueSummit Pro Yearly",
           "subscriptionGroupID" : "5F4D8B22-9C7E-4E1A-AA15-7B16F4D2D101",
           "type" : "RecurringSubscription"
         },
@@ -84,13 +84,13 @@
           "localizations" : [
             {
               "description" : "Everything in Pro, plus family sharing, AI insights, investments, receipt scanning, and unlimited linked banks.",
-              "displayName" : "Summit Premium Monthly",
+              "displayName" : "TrueSummit Premium Monthly",
               "locale" : "en_US"
             }
           ],
           "productID" : "com.welker.TrueSummit.premium.monthly",
           "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Summit Premium Monthly",
+          "referenceName" : "TrueSummit Premium Monthly",
           "subscriptionGroupID" : "5F4D8B22-9C7E-4E1A-AA15-7B16F4D2D101",
           "type" : "RecurringSubscription"
         },
@@ -108,14 +108,14 @@
           },
           "localizations" : [
             {
-              "description" : "Summit Premium for a full year — save 36% versus monthly.",
-              "displayName" : "Summit Premium Yearly",
+              "description" : "TrueSummit Premium for a full year — save 36% versus monthly.",
+              "displayName" : "TrueSummit Premium Yearly",
               "locale" : "en_US"
             }
           ],
           "productID" : "com.welker.TrueSummit.premium.yearly",
           "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "Summit Premium Yearly",
+          "referenceName" : "TrueSummit Premium Yearly",
           "subscriptionGroupID" : "5F4D8B22-9C7E-4E1A-AA15-7B16F4D2D101",
           "type" : "RecurringSubscription"
         }
