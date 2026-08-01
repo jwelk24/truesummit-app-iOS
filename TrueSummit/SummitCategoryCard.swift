@@ -93,14 +93,14 @@ struct SummitCategoryCard: View {
 
                 Text("of \(currencyWhole(assigned))")
                     .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(SummitTheme.textTertiary)
 
                 SummitGradientBar(fraction: fraction, height: 3, tint: barColor)
                     .padding(.top, 8)
 
                 Text(available < 0 ? "\(currencyWhole(-available)) over" : "\(currencyWhole(available)) left")
                     .font(.caption2)
-                    .foregroundStyle(available < 0 ? AnyShapeStyle(SummitTheme.rose) : AnyShapeStyle(.tertiary))
+                    .foregroundStyle(available < 0 ? AnyShapeStyle(SummitTheme.rose) : AnyShapeStyle(SummitTheme.textTertiary))
                     .monospacedDigit()
                     .padding(.top, 5)
 
@@ -120,6 +120,13 @@ struct SummitCategoryCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
             .background(SummitTheme.slate2, in: RoundedRectangle(cornerRadius: 20))
+            // Hairline edge so the combined accessibility element is
+            // distinguishable from the surface behind it (clears the
+            // container-contrast flag), matching the hero cards.
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+            )
             .overlay(alignment: .bottom) {
                 UnevenRoundedRectangle(bottomLeadingRadius: 20, bottomTrailingRadius: 20)
                     .fill(barColor)

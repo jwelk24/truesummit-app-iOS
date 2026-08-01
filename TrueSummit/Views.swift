@@ -3200,7 +3200,7 @@ private struct LiabilityStat: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(label)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(SummitTheme.textTertiary)
             Text(value)
                 .foregroundStyle(.primary)
         }

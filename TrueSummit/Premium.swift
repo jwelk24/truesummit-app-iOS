@@ -60,8 +60,13 @@ enum SubscriptionPeriod {
 // Storage keys shared between the actor-isolated Entitlements singleton
 // and the non-isolated Premium shim. File-private to keep them out of the
 // global namespace.
+//
+// `entitlementTierKey` holds the active *paid* tier only (absent when the
+// user has no purchase). Trial access is tracked separately by the two
+// trial keys, so "in trial" and "subscribed" never get conflated.
 fileprivate let entitlementTierKey = "entitlement.tier"
 fileprivate let entitlementTrialKey = "entitlement.trialExpiresAt"
+fileprivate let entitlementTrialStartedKey = "entitlement.trialStarted"
 
 // MARK: - Entitlements
 
@@ -73,20 +78,44 @@ fileprivate let entitlementTrialKey = "entitlement.trialExpiresAt"
 final class Entitlements {
     static let shared = Entitlements()
 
-    private(set) var tier: SubscriptionTier
+    /// The active *paid* subscription tier, or nil when there's no purchase.
+    /// Written only from verified StoreKit transactions (and the DEBUG picker).
+    private(set) var paidTier: SubscriptionTier?
     private(set) var trialExpiresAt: Date?
+    /// Whether the one-time trial has ever been started on this install — so it
+    /// can't be farmed, and so the lock screen never flashes before the trial
+    /// kicks in on first launch.
+    private(set) var hasStartedTrial: Bool
 
     private init() {
         let defaults = UserDefaults.standard
-        if let raw = defaults.string(forKey: entitlementTierKey),
-           let stored = SubscriptionTier(rawValue: raw) {
-            self.tier = stored
-        } else {
-            // Dev default until StoreKit is wired so the app remains usable.
-            self.tier = .pro
-        }
+        self.paidTier = defaults.string(forKey: entitlementTierKey).flatMap(SubscriptionTier.init(rawValue:))
         self.trialExpiresAt = defaults.object(forKey: entitlementTrialKey) as? Date
+        self.hasStartedTrial = defaults.bool(forKey: entitlementTrialStartedKey)
     }
+
+    // MARK: Access resolution
+
+    /// The tier that governs feature access right now: an active paid tier if
+    /// there is one, otherwise Pro while the trial is live, otherwise nil —
+    /// meaning the user is locked out (trial over, nothing purchased).
+    var effectiveTier: SubscriptionTier? {
+        if let paidTier { return paidTier }
+        if isInTrial { return .pro }
+        return nil
+    }
+
+    /// True when the user may use the app at all (paid or in an active trial).
+    var hasAccess: Bool { effectiveTier != nil }
+
+    /// Drives the hard paywall: the trial was started and has now run out with
+    /// no active subscription. Gated on `hasStartedTrial` so the very first
+    /// launch (before `beginTrialIfNeeded`) never flashes the lock.
+    var isLocked: Bool { hasStartedTrial && !hasAccess }
+
+    /// Display tier for paywall/settings chrome. Falls back to Pro so the
+    /// upsell UI — only shown when NOT locked — always has something to show.
+    var tier: SubscriptionTier { effectiveTier ?? .pro }
 
     // MARK: Trial state
 
@@ -100,32 +129,32 @@ final class Entitlements {
         return Int(ceil(exp.timeIntervalSince(Date()) / 86_400))
     }
 
-    // MARK: Pro+ features (Pro and Premium both unlock these)
+    // MARK: Pro+ features (any active access — trial or paid — unlocks these)
 
-    var canLinkPlaid: Bool { true }
-    var canUseCloudSync: Bool { true }
-    var canForecast30Days: Bool { true }
-    var canViewBasicReports: Bool { true }
+    var canLinkPlaid: Bool { hasAccess }
+    var canUseCloudSync: Bool { hasAccess }
+    var canForecast30Days: Bool { hasAccess }
+    var canViewBasicReports: Bool { hasAccess }
 
     // MARK: Premium-only features
 
-    var canScanReceipts: Bool { tier == .premium }
-    var canUseHousehold: Bool { tier == .premium }
-    var canUseAIInsights: Bool { tier == .premium }
-    var canTrackInvestments: Bool { tier == .premium }
-    var canTrackLiabilities: Bool { tier == .premium }
-    var canExportReports: Bool { tier == .premium }
-    var canUseAutoRules: Bool { tier == .premium }
-    var canUseSmartAlerts: Bool { tier == .premium }
-    var canUseSubscriptionTracker: Bool { tier == .premium }
+    var canScanReceipts: Bool { effectiveTier == .premium }
+    var canUseHousehold: Bool { effectiveTier == .premium }
+    var canUseAIInsights: Bool { effectiveTier == .premium }
+    var canTrackInvestments: Bool { effectiveTier == .premium }
+    var canTrackLiabilities: Bool { effectiveTier == .premium }
+    var canExportReports: Bool { effectiveTier == .premium }
+    var canUseAutoRules: Bool { effectiveTier == .premium }
+    var canUseSmartAlerts: Bool { effectiveTier == .premium }
+    var canUseSubscriptionTracker: Bool { effectiveTier == .premium }
 
     // MARK: Numeric caps
 
     /// Premium is effectively unlimited; the cap is only an anti-abuse / cost
-    /// backstop. Pro gets a generous allowance.
-    var maxPlaidItems: Int { tier == .premium ? 100 : 15 }
-    var maxHorizonDays: Int { tier == .premium ? 365 : 30 }
-    var maxHistoryMonths: Int { tier == .premium ? .max : 12 }
+    /// backstop. Pro (and the trial) get a generous allowance.
+    var maxPlaidItems: Int { effectiveTier == .premium ? 100 : 15 }
+    var maxHorizonDays: Int { effectiveTier == .premium ? 365 : 30 }
+    var maxHistoryMonths: Int { effectiveTier == .premium ? .max : 12 }
 
     /// The tier required to unlock a given Premium-only feature. Used by
     /// `LockedFeatureCard` to label the upgrade CTA correctly.
@@ -140,17 +169,38 @@ final class Entitlements {
 
     // MARK: Mutations
 
+    /// Sets the active paid tier — from a verified StoreKit purchase, or the
+    /// DEBUG tier picker.
     func setTier(_ newTier: SubscriptionTier) {
-        tier = newTier
+        paidTier = newTier
         UserDefaults.standard.set(newTier.rawValue, forKey: entitlementTierKey)
+    }
+
+    /// Clears the paid tier when StoreKit reports no active subscription.
+    /// Access then falls back to the trial (if still live) or locks.
+    func clearPaidTier() {
+        paidTier = nil
+        UserDefaults.standard.removeObject(forKey: entitlementTierKey)
+    }
+
+    /// Starts the one-time 30-day Pro trial on first launch. No-op once a trial
+    /// has ever been started, so it can't be farmed by reopening the app.
+    func beginTrialIfNeeded(days: Int = 30) {
+        guard !hasStartedTrial else { return }
+        startTrial(days: days)
     }
 
     func startTrial(days: Int = 30) {
         let exp = Calendar.current.date(byAdding: .day, value: days, to: Date()) ?? Date()
         trialExpiresAt = exp
-        UserDefaults.standard.set(exp, forKey: entitlementTrialKey)
+        hasStartedTrial = true
+        let defaults = UserDefaults.standard
+        defaults.set(exp, forKey: entitlementTrialKey)
+        defaults.set(true, forKey: entitlementTrialStartedKey)
     }
 
+    /// Ends the current trial window (DEBUG testing of the locked state).
+    /// Leaves `hasStartedTrial` set so it won't silently restart.
     func endTrial() {
         trialExpiresAt = nil
         UserDefaults.standard.removeObject(forKey: entitlementTrialKey)
@@ -225,14 +275,17 @@ enum PremiumFeature: String, CaseIterable {
 
 /// Existing call sites (e.g. `SyncService.syncAccounts`) read this from
 /// non-MainActor contexts. Reads UserDefaults directly so it stays callable
-/// from any actor, and resolves to true whenever the user has any active
-/// paid tier (Pro or Premium). When StoreKit is wired up, this stays the
-/// single non-isolated entry point for "is the user paying?".
+/// from any actor, and resolves to true whenever the user has active access —
+/// either an active paid tier (Pro or Premium) or a live trial. The single
+/// non-isolated entry point for "may this user use paid features right now?".
 enum Premium {
     static var isActive: Bool {
-        let raw = UserDefaults.standard.string(forKey: entitlementTierKey)
-            ?? SubscriptionTier.pro.rawValue
-        return SubscriptionTier(rawValue: raw) != nil
+        let defaults = UserDefaults.standard
+        // Active paid subscription?
+        if defaults.string(forKey: entitlementTierKey) != nil { return true }
+        // Or a trial that hasn't expired yet?
+        if let exp = defaults.object(forKey: entitlementTrialKey) as? Date, exp > Date() { return true }
+        return false
     }
 }
 
@@ -498,6 +551,85 @@ private struct PaywallFeatureRow: View {
             Spacer()
             Image(systemName: "checkmark")
                 .foregroundStyle(.green)
+        }
+    }
+}
+
+// MARK: - Subscription lock screen
+
+/// The hard paywall shown once the free trial ends with no active
+/// subscription. Blocks the app, but deliberately keeps "Export My Data" and
+/// "Sign Out" reachable so people are never locked away from their own data.
+struct SubscriptionLockScreen: View {
+    @Bindable private var store = StoreKitService.shared
+    @Environment(\.modelContext) private var context
+    @State private var showingPaywall = false
+    @State private var exportURL: URL?
+    @State private var isSigningOut = false
+
+    var body: some View {
+        ZStack {
+            SummitTheme.slate.ignoresSafeArea()
+            VStack(spacing: 20) {
+                Spacer()
+                Image(systemName: "mountain.2.circle.fill")
+                    .font(.system(size: 64))
+                    .foregroundStyle(SummitTheme.teal)
+                VStack(spacing: 8) {
+                    Text("Your free trial has ended")
+                        .font(.title2.weight(.bold))
+                        .multilineTextAlignment(.center)
+                    Text("Subscribe to keep budgeting with TrueSummit — your data is safe and waiting for you.")
+                        .font(.subheadline)
+                        .foregroundStyle(SummitTheme.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 32)
+
+                Button {
+                    showingPaywall = true
+                } label: {
+                    Text("See Plans").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .padding(.horizontal, 40)
+                .accessibilityIdentifier("lockSeePlansButton")
+
+                Button("Restore Purchases") {
+                    Task { await store.restore() }
+                }
+                .font(.subheadline)
+                .disabled(store.purchaseInProgress)
+
+                Spacer()
+
+                // Escape hatches — never trap someone's own data behind the wall.
+                VStack(spacing: 12) {
+                    if let exportURL {
+                        ShareLink(item: exportURL) {
+                            Label("Export My Data", systemImage: "square.and.arrow.up")
+                        }
+                        .accessibilityIdentifier("lockExportDataButton")
+                    }
+                    Button(role: .destructive) {
+                        isSigningOut = true
+                        Task {
+                            try? await AuthService.signOut()
+                            isSigningOut = false
+                        }
+                    } label: {
+                        Text("Sign Out")
+                    }
+                    .disabled(isSigningOut)
+                }
+                .font(.footnote)
+                .padding(.bottom, 24)
+            }
+        }
+        .sheet(isPresented: $showingPaywall) { PaywallView() }
+        .task {
+            if exportURL == nil { exportURL = DataExporter.write(context: context) }
         }
     }
 }

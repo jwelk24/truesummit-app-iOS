@@ -162,7 +162,7 @@ struct OnboardingWizardView: View {
 
     private var header: some View {
         HStack {
-            Button("Back") { withAnimation { step -= 1 } }
+            Button("Back") { summitWithAnimation(.default) { step -= 1 } }
                 .foregroundStyle(.secondary)
                 .opacity(step > 0 && step <= lastStep ? 1 : 0)
                 .disabled(step == 0)
@@ -177,7 +177,7 @@ struct OnboardingWizardView: View {
                         .frame(width: i == step ? 18 : 6, height: 6)
                 }
             }
-            .animation(.smooth(duration: 0.2), value: step)
+            .summitAnimation(.smooth(duration: 0.2), value: step)
             .accessibilityHidden(true)
 
             Spacer()
@@ -234,7 +234,7 @@ struct OnboardingWizardView: View {
     private func advance() {
         nameFocused = false
         if step < lastStep {
-            withAnimation { step += 1 }
+            summitWithAnimation(.default) { step += 1 }
         } else {
             commit()
             onFinish()
@@ -299,7 +299,7 @@ struct OnboardingWizardView: View {
             }
 
             Button {
-                withAnimation { accounts.append(DraftAccount()) }
+                summitWithAnimation(.default) { accounts.append(DraftAccount()) }
             } label: {
                 Label("Add another account", systemImage: "plus.circle.fill")
                     .font(.subheadline.weight(.semibold))
@@ -441,7 +441,7 @@ struct OnboardingWizardView: View {
         .padding(16)
         .background(accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(accent.opacity(0.25), lineWidth: 1))
-        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: leftToAssign)
+        .summitAnimation(.spring(response: 0.45, dampingFraction: 0.8), value: leftToAssign)
         .accessibilityIdentifier("onboardingLeftToAssign")
         .accessibilityLabel("\(headline), \(currency(abs(leftToAssign)))")
     }

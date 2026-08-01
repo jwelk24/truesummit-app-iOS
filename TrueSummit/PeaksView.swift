@@ -327,7 +327,7 @@ struct PeakCard: View {
                             .foregroundStyle(.primary)
                         Text("of \(peakCurrency(goal.targetAmount))")
                             .font(.caption)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(SummitTheme.textTertiary)
                     }
 
                     Spacer()

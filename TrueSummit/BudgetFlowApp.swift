@@ -65,6 +65,7 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
     private var appLock = AppLockService.shared
+    private var entitlements = Entitlements.shared
 
     private var orderedTabs: [TabKind] {
         let saved = tabOrderRaw.split(separator: ",").compactMap { TabKind(rawValue: String($0)) }
@@ -99,10 +100,10 @@ struct RootView: View {
                         onAdvance: { advanceTour(to: $0) },
                         onFinish: {
                             OnboardingState.hasTakenTour = true
-                            withAnimation(.smooth(duration: 0.25)) { tourIndex = nil }
+                            summitWithAnimation(.smooth(duration: 0.25)) { tourIndex = nil }
                         },
                         onClose: {
-                            withAnimation(.smooth(duration: 0.25)) { tourIndex = nil }
+                            summitWithAnimation(.smooth(duration: 0.25)) { tourIndex = nil }
                         }
                     )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -167,10 +168,10 @@ struct RootView: View {
             if !welcomeDone {
                 OnboardingWizardView(
                     onFinish: {
-                        withAnimation(.smooth(duration: 0.3)) { welcomeDone = true }
+                        summitWithAnimation(.smooth(duration: 0.3)) { welcomeDone = true }
                     },
                     onConnectBank: {
-                        withAnimation(.smooth(duration: 0.3)) { welcomeDone = true }
+                        summitWithAnimation(.smooth(duration: 0.3)) { welcomeDone = true }
                         showingWelcomeConnections = true
                     }
                 )
@@ -197,11 +198,19 @@ struct RootView: View {
                 AppPrivacyShield()
             }
         }
+        // Hard paywall once the trial ends with no active subscription. Topmost
+        // so it sits above everything except the security-critical app lock.
+        .overlay {
+            if entitlements.isLocked {
+                SubscriptionLockScreen()
+                    .transition(.opacity)
+            }
+        }
     }
 
     /// Moves the guided tour to a stop and brings its tab on screen.
     private func advanceTour(to index: Int) {
-        withAnimation(.smooth(duration: 0.25)) {
+        summitWithAnimation(.smooth(duration: 0.25)) {
             tourIndex = index
             selectedTab = TourStop.all[index].tab
         }
@@ -223,7 +232,7 @@ struct RootView: View {
         }
         .transition(.opacity)
         .id(tab)
-        .animation(.smooth(duration: 0.22), value: selectedTab)
+        .summitAnimation(.smooth(duration: 0.22), value: selectedTab)
     }
 }
 
@@ -283,7 +292,7 @@ struct SummitSyncHUD: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: isSyncing ? 2 : 0)
-        .animation(.smooth(duration: 0.2), value: isSyncing)
+        .summitAnimation(.smooth(duration: 0.2), value: isSyncing)
     }
 }
 

@@ -10,10 +10,10 @@ import StoreKit
 final class StoreKitService {
     static let shared = StoreKitService()
 
-    static let proMonthlyProductID = "com.welker.Summit.pro.monthly"
-    static let proYearlyProductID = "com.welker.Summit.pro.yearly"
-    static let premiumMonthlyProductID = "com.welker.Summit.premium.monthly"
-    static let premiumYearlyProductID = "com.welker.Summit.premium.yearly"
+    static let proMonthlyProductID = "com.welker.TrueSummit.pro.monthly"
+    static let proYearlyProductID = "com.welker.TrueSummit.pro.yearly"
+    static let premiumMonthlyProductID = "com.welker.TrueSummit.premium.monthly"
+    static let premiumYearlyProductID = "com.welker.TrueSummit.premium.yearly"
 
     static let allProductIDs: Set<String> = [
         proMonthlyProductID,
@@ -118,9 +118,11 @@ final class StoreKitService {
 
     // MARK: Internals
 
-    /// Iterates `Transaction.currentEntitlements` and applies the highest
-    /// active tier to `Entitlements`. Leaves `Entitlements` untouched if
-    /// nothing is active — so the dev override persists in development.
+    /// Iterates `Transaction.currentEntitlements` and reconciles the paid tier
+    /// in `Entitlements`: the highest active tier when one exists, otherwise
+    /// clears it so access falls back to the trial (if live) or locks.
+    /// `currentEntitlements` is served from StoreKit's on-device cache, so this
+    /// resolves correctly offline.
     private func refreshEntitlements() async {
         var best: SubscriptionTier?
         for await result in Transaction.currentEntitlements {
@@ -133,6 +135,8 @@ final class StoreKitService {
         }
         if let best {
             Entitlements.shared.setTier(best)
+        } else {
+            Entitlements.shared.clearPaidTier()
         }
     }
 

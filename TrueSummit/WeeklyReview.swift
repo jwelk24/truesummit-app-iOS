@@ -94,13 +94,13 @@ struct WeeklyReviewView: View {
                     .frame(width: i == stepIndex ? 22 : 8, height: 8)
             }
         }
-        .animation(.smooth(duration: 0.2), value: stepIndex)
+        .summitAnimation(.smooth(duration: 0.2), value: stepIndex)
     }
 
     private var continueButton: some View {
         Button {
             if stepIndex < steps.count - 1 {
-                withAnimation(.smooth(duration: 0.25)) { stepIndex += 1 }
+                summitWithAnimation(.smooth(duration: 0.25)) { stepIndex += 1 }
             } else {
                 recordCompletion()
                 dismiss()

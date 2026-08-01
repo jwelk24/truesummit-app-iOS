@@ -335,7 +335,7 @@ private struct RuleRow: View {
             Spacer()
             Text("p\(rule.priority)")
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(SummitTheme.textTertiary)
                 .monospacedDigit()
         }
         .padding(.vertical, 2)

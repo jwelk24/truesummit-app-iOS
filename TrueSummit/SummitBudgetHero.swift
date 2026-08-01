@@ -38,6 +38,13 @@ struct SummitBudgetHero: View {
     /// stray space doesn't produce "Good evening, ".
     @AppStorage("userDisplayName") private var userDisplayName: String = ""
 
+    /// Hero numerals use fixed point sizes for the mockup's proportions, so
+    /// they're scaled with Dynamic Type by hand (relative to the nearest text
+    /// style) to support Larger Text; `minimumScaleFactor` then keeps the big
+    /// figure on one line instead of clipping at the largest sizes.
+    @ScaledMetric(relativeTo: .title) private var currencySymbolSize: CGFloat = 28
+    @ScaledMetric(relativeTo: .largeTitle) private var remainingAmountSize: CGFloat = 52
+
     private var greeting: String {
         switch Calendar.current.component(.hour, from: .now) {
         case ..<12: "Good morning"
@@ -82,12 +89,14 @@ struct SummitBudgetHero: View {
                     .foregroundStyle(.secondary)
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                     Text(currencySymbol)
-                        .font(.system(size: 28, design: .serif).weight(.bold))
+                        .font(.system(size: currencySymbolSize, design: .serif).weight(.bold))
                         .foregroundStyle(SummitTheme.teal)
                     Text(wholeNumber(remaining))
-                        .font(.system(size: 52, design: .serif).weight(.bold))
+                        .font(.system(size: remainingAmountSize, design: .serif).weight(.bold))
                         .monospacedDigit()
                         .contentTransition(.numericText())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
                 Text("of \(currencyWhole(assigned)) budget · \(Text("\(currencyWhole(spent)) spent").foregroundStyle(SummitTheme.amber).bold())")
                     .font(.footnote)
@@ -252,7 +261,7 @@ private struct LeftToAssignBanner: View {
             RoundedRectangle(cornerRadius: 20)
                 .strokeBorder(accent.opacity(0.25), lineWidth: 1)
         )
-        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: availableToBudget)
+        .summitAnimation(.spring(response: 0.45, dampingFraction: 0.8), value: availableToBudget)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(headline). \(showsAmount ? currencyWhole(amount) : ""). \(subtitle)")
     }
@@ -288,13 +297,20 @@ private struct SummitCategoryTile: View {
                 .monospacedDigit()
             Text("of \(currencyWhole(tile.budget))")
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(SummitTheme.textTertiary)
             SummitGradientBar(fraction: fraction, height: 3, tint: accent)
                 .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(SummitTheme.slate2, in: RoundedRectangle(cornerRadius: 20))
+        // Hairline edge so the slate2 tile is distinguishable from the slate
+        // page — matches the other hero cards and clears the container-contrast
+        // flag the combined accessibility element otherwise trips.
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+        )
         .overlay(alignment: .bottom) {
             UnevenRoundedRectangle(bottomLeadingRadius: 20, bottomTrailingRadius: 20)
                 .fill(accent)
@@ -325,7 +341,7 @@ private struct SummitInsightCard: View {
                         .foregroundStyle(SummitTheme.teal)
                     Text(text)
                         .font(.footnote)
-                        .foregroundStyle(.primary.opacity(0.75))
+                        .foregroundStyle(SummitTheme.ice.opacity(0.9))
                         .multilineTextAlignment(.leading)
                 }
                 Spacer(minLength: 0)

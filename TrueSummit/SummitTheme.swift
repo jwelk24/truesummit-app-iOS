@@ -1,4 +1,44 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
+
+// MARK: - Reduce Motion
+
+/// Whether the system **Reduce Motion** setting is on. Readable from any
+/// context (not only Views), so `withAnimation` call sites inside helpers and
+/// closures can gate their animations too.
+var summitReduceMotion: Bool {
+    #if canImport(UIKit)
+    UIAccessibility.isReduceMotionEnabled
+    #else
+    false
+    #endif
+}
+
+/// `withAnimation` that collapses to an instant state change when Reduce
+/// Motion is enabled — the change still happens, just without the movement.
+@discardableResult
+func summitWithAnimation<Result>(_ animation: Animation?, _ body: () throws -> Result) rethrows -> Result {
+    try withAnimation(summitReduceMotion ? nil : animation, body)
+}
+
+extension View {
+    /// `.animation(_:value:)` that disables the animation under Reduce Motion.
+    func summitAnimation<V: Equatable>(_ animation: Animation?, value: V) -> some View {
+        modifier(SummitReduceMotionAnimation(animation: animation, value: value))
+    }
+}
+
+private struct SummitReduceMotionAnimation<V: Equatable>: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let animation: Animation?
+    let value: V
+
+    func body(content: Content) -> some View {
+        content.animation(reduceMotion ? nil : animation, value: value)
+    }
+}
 
 // MARK: - Design tokens
 
@@ -12,6 +52,14 @@ enum SummitTheme {
     static let slate2 = Color(red: 0x25 / 255, green: 0x2E / 255, blue: 0x42 / 255)
     /// Near-white text on slate.
     static let ice = Color(red: 0xF0 / 255, green: 0xF4 / 255, blue: 0xFF / 255)
+
+    /// Contrast-safe muted text tokens for the dark slate surfaces. The
+    /// system `.secondary`/`.tertiary` styles (60%/30% white) are tuned for
+    /// standard backgrounds and drop below WCAG 4.5:1 on our deep slate, so
+    /// captions and helper text use these ice-based opacities instead — both
+    /// clear 4.5:1 on `slate` and `slate2`.
+    static let textSecondary = ice.opacity(0.78)
+    static let textTertiary = ice.opacity(0.62)
 
     static let teal = Color(red: 0x4E / 255, green: 0xCD / 255, blue: 0xC4 / 255)
     static let tealDeep = Color(red: 0x3A / 255, green: 0xB8 / 255, blue: 0xB0 / 255)
@@ -96,7 +144,7 @@ struct SummitGradientBar: View {
             }
         }
         .frame(height: height)
-        .animation(.smooth(duration: 0.6), value: fraction)
+        .summitAnimation(.smooth(duration: 0.6), value: fraction)
     }
 }
 

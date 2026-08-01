@@ -74,7 +74,13 @@ struct SummitApp: App {
                     // Kick off the StoreKit transaction listener and pull the
                     // current entitlement before anything else, so gates
                     // resolve correctly on first render.
-                    await MainActor.run { StoreKitService.shared.start() }
+                    await MainActor.run {
+                        StoreKitService.shared.start()
+                        // Give new users their one-time 30-day Pro trial before
+                        // the first frame, so the lock screen never flashes and
+                        // gates resolve to "in trial" immediately.
+                        Entitlements.shared.beginTrialIfNeeded()
+                    }
 
                     // If there's a persisted Supabase session, pull cloud data BEFORE seeding,
                     // so the seed only runs when there's genuinely no data anywhere.

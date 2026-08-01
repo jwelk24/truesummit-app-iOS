@@ -40,7 +40,7 @@ struct SummitMountainView: View {
     }
 
     private func sync() {
-        withAnimation(.spring(response: 1.2, dampingFraction: 0.78)) {
+        summitWithAnimation(.spring(response: 1.2, dampingFraction: 0.78)) {
             animSavings = clamp01(savingsRate)
             animBudget = clamp01(budgetUsed)
             animTrend = clamp01(netWorthTrend)

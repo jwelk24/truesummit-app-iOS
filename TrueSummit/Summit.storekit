@@ -38,7 +38,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.welker.Summit.pro.monthly",
+          "productID" : "com.welker.TrueSummit.pro.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Summit Pro Monthly",
           "subscriptionGroupID" : "5F4D8B22-9C7E-4E1A-AA15-7B16F4D2D101",
@@ -63,7 +63,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.welker.Summit.pro.yearly",
+          "productID" : "com.welker.TrueSummit.pro.yearly",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "Summit Pro Yearly",
           "subscriptionGroupID" : "5F4D8B22-9C7E-4E1A-AA15-7B16F4D2D101",
@@ -88,7 +88,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.welker.Summit.premium.monthly",
+          "productID" : "com.welker.TrueSummit.premium.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Summit Premium Monthly",
           "subscriptionGroupID" : "5F4D8B22-9C7E-4E1A-AA15-7B16F4D2D101",
@@ -113,7 +113,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.welker.Summit.premium.yearly",
+          "productID" : "com.welker.TrueSummit.premium.yearly",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "Summit Premium Yearly",
           "subscriptionGroupID" : "5F4D8B22-9C7E-4E1A-AA15-7B16F4D2D101",
