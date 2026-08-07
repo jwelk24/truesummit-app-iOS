@@ -12,6 +12,5 @@ import SwiftUI
 struct SummitWatchWidgetsBundle: WidgetBundle {
     var body: some Widget {
         SummitWatchWidgets()
-        SummitWatchWidgetsControl()
     }
 }

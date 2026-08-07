@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import WatchConnectivity
+import WidgetKit
 
 /// Receives the `SummitSnapshot` pushed from the iPhone and makes it available
 /// to the Watch UI. Also writes it to the app-group container so a future
@@ -29,6 +30,9 @@ final class WatchConnectivityReceiver: NSObject, ObservableObject, WCSessionDele
         decoder.dateDecodingStrategy = .iso8601
         let decoded = try? decoder.decode(SummitSnapshot.self, from: data)
         DispatchQueue.main.async { self.snapshot = decoded ?? SummitSnapshot.load() }
+        // Refresh the watch complication so it reflects the new snapshot instead
+        // of waiting for its next scheduled timeline reload.
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     // MARK: WCSessionDelegate
