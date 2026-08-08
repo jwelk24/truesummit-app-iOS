@@ -26,11 +26,6 @@
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "B1C5F12A-3A1E-4F4C-9D0F-1C5E91A4B201",
-          "introductoryOffer" : {
-            "internalID" : "C2D6E13B-4B2F-5A5D-AE1F-2D6FA2B5C301",
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P1M"
-          },
           "localizations" : [
             {
               "description" : "Connect up to 15 bank accounts, sync across devices, and plan 30 days ahead.",
@@ -51,11 +46,6 @@
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "F5A9B26E-7E51-8D80-D142-5092D5E8F601",
-          "introductoryOffer" : {
-            "internalID" : "06BAC37F-8F62-9E91-E253-61A3E6F90701",
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P1M"
-          },
           "localizations" : [
             {
               "description" : "TrueSummit Pro for a full year — save 28% versus monthly.",
@@ -76,11 +66,6 @@
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "D3E7F14C-5C3F-6B6E-BF20-3E70B3C6D401",
-          "introductoryOffer" : {
-            "internalID" : "E4F8A25D-6D40-7C7F-C031-4F81C4D7E501",
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P1M"
-          },
           "localizations" : [
             {
               "description" : "Everything in Pro, plus family sharing, AI insights, investments, receipt scanning, and unlimited linked banks.",
@@ -101,11 +86,6 @@
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "17CBD480-9073-AFA2-F364-72B4F70A1801",
-          "introductoryOffer" : {
-            "internalID" : "28DCE591-A184-BAB3-0475-83C5081B2901",
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P1M"
-          },
           "localizations" : [
             {
               "description" : "TrueSummit Premium for a full year — save 36% versus monthly.",
