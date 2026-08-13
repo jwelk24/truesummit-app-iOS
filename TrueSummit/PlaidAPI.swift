@@ -27,7 +27,15 @@ struct PlaidAPI {
         let linkToken: String
         let hostedLinkUrl: String
         let expiration: String?
-        let redirectUri: String?
+        /// Custom-scheme URI the Hosted Link web view redirects to on completion.
+        let completionRedirectUri: String?
+    }
+
+    /// Result of a Hosted Link session. `publicToken` is nil if the session
+    /// finished without the user adding an item (i.e. they exited).
+    struct LinkSessionResponse: Decodable {
+        let publicToken: String?
+        let finishedAt: String?
     }
 
     struct ExchangeResponse: Decodable {
@@ -79,6 +87,12 @@ struct PlaidAPI {
         try await post(path: "/api/item/public_token/exchange", body: ["publicToken": publicToken])
     }
 
+    /// Fetch the results of a completed Hosted Link session to obtain the
+    /// public_token (which Hosted Link does not deliver via the web redirect).
+    static func getLinkSession(linkToken: String) async throws -> LinkSessionResponse {
+        try await post(path: "/api/link/token/get", body: ["linkToken": linkToken])
+    }
+
     static func accounts(accessToken: String) async throws -> AccountsResponse {
         try await request(path: "/api/accounts", method: "GET", accessToken: accessToken, body: Optional<String>.none)
     }
@@ -120,7 +134,10 @@ struct PlaidAPI {
         accessToken: String?,
         body: Body?
     ) async throws -> Response {
-        guard let url = URL(string: path, relativeTo: baseURL) else {
+        // Concatenate rather than use relative-URL resolution: `path` is
+        // absolute (/api/...), which would otherwise drop any base-URL path
+        // prefix (e.g. Supabase's /functions/v1/plaid).
+        guard let url = URL(string: baseURL.absoluteString + path) else {
             throw PlaidAPIError.invalidURL(path)
         }
         var req = URLRequest(url: url)

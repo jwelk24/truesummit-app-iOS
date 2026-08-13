@@ -2872,11 +2872,11 @@ struct NetWorthView: View {
         do {
             let response = try await PlaidAPI.createLinkToken()
             guard let hostedURL = URL(string: response.hostedLinkUrl),
-                  let redirect = response.redirectUri.flatMap(URL.init(string:)) else {
+                  let redirect = response.completionRedirectUri.flatMap(URL.init(string:)) else {
                 showPlaidError("Backend returned an invalid link URL.")
                 return
             }
-            plaidLinkSession = PlaidLinkSession(hostedLinkURL: hostedURL, redirectURL: redirect)
+            plaidLinkSession = PlaidLinkSession(hostedLinkURL: hostedURL, completionRedirectURL: redirect, linkToken: response.linkToken)
         } catch {
             showPlaidError("Couldn't start Plaid Link: \(error.localizedDescription)")
         }

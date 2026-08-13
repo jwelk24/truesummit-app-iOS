@@ -2,21 +2,27 @@ import SwiftUI
 import WebKit
 
 /// Cross-platform (iOS + macOS) Plaid Link host. Loads the Hosted Link URL the
-/// backend returned, then watches for the redirect_uri the backend configured.
-/// When that redirect fires, the `public_token` query parameter is extracted
-/// and reported back via `onComplete`.
+/// backend returned, then watches for the custom-scheme `completionRedirectURL`
+/// the backend configured. Hosted Link does NOT deliver the `public_token` via
+/// the web redirect, so when that redirect fires we call
+/// `/api/link/token/get` (via `linkToken`) to retrieve it, then report the
+/// `public_token` back through `onComplete`.
 ///
 /// Using Hosted Link + WKWebView lets the same code run on iOS and native
 /// macOS — the LinkKit SPM package is iOS / Mac Catalyst only.
 struct PlaidLinkView: View {
     let hostedLinkURL: URL
-    let redirectURL: URL
+    /// The custom-scheme URI (e.g. `summit://plaid-complete`) Hosted Link
+    /// redirects to when the session finishes.
+    let completionRedirectURL: URL
+    let linkToken: String
     var onComplete: (Result<String, PlaidLinkError>) -> Void
 
     var body: some View {
         PlaidLinkWebView(
             hostedLinkURL: hostedLinkURL,
-            redirectURL: redirectURL,
+            completionRedirectURL: completionRedirectURL,
+            linkToken: linkToken,
             onComplete: onComplete
         )
         #if os(iOS)
@@ -47,11 +53,12 @@ enum PlaidLinkError: LocalizedError {
 import UIKit
 private struct PlaidLinkWebView: UIViewRepresentable {
     let hostedLinkURL: URL
-    let redirectURL: URL
+    let completionRedirectURL: URL
+    let linkToken: String
     var onComplete: (Result<String, PlaidLinkError>) -> Void
 
     func makeCoordinator() -> PlaidLinkWebCoordinator {
-        PlaidLinkWebCoordinator(redirectURL: redirectURL, onComplete: onComplete)
+        PlaidLinkWebCoordinator(completionRedirectURL: completionRedirectURL, linkToken: linkToken, onComplete: onComplete)
     }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -68,11 +75,12 @@ private struct PlaidLinkWebView: UIViewRepresentable {
 import AppKit
 private struct PlaidLinkWebView: NSViewRepresentable {
     let hostedLinkURL: URL
-    let redirectURL: URL
+    let completionRedirectURL: URL
+    let linkToken: String
     var onComplete: (Result<String, PlaidLinkError>) -> Void
 
     func makeCoordinator() -> PlaidLinkWebCoordinator {
-        PlaidLinkWebCoordinator(redirectURL: redirectURL, onComplete: onComplete)
+        PlaidLinkWebCoordinator(completionRedirectURL: completionRedirectURL, linkToken: linkToken, onComplete: onComplete)
     }
 
     func makeNSView(context: Context) -> WKWebView {
@@ -88,12 +96,14 @@ private struct PlaidLinkWebView: NSViewRepresentable {
 #endif
 
 private final class PlaidLinkWebCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
-    let redirectURL: URL
+    let completionRedirectURL: URL
+    let linkToken: String
     let onComplete: (Result<String, PlaidLinkError>) -> Void
     private var finished = false
 
-    init(redirectURL: URL, onComplete: @escaping (Result<String, PlaidLinkError>) -> Void) {
-        self.redirectURL = redirectURL
+    init(completionRedirectURL: URL, linkToken: String, onComplete: @escaping (Result<String, PlaidLinkError>) -> Void) {
+        self.completionRedirectURL = completionRedirectURL
+        self.linkToken = linkToken
         self.onComplete = onComplete
     }
 
@@ -135,35 +145,29 @@ private final class PlaidLinkWebCoordinator: NSObject, WKNavigationDelegate, WKU
     }
 
     private func matchesRedirect(_ url: URL) -> Bool {
-        url.scheme == redirectURL.scheme &&
-        url.host == redirectURL.host &&
-        url.path == redirectURL.path
+        url.scheme == completionRedirectURL.scheme &&
+        url.host == completionRedirectURL.host
     }
 
     private func handleRedirect(_ url: URL) {
         finished = true
-        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        let lookup = Dictionary(uniqueKeysWithValues: items.compactMap { item -> (String, String)? in
-            guard let value = item.value else { return nil }
-            return (item.name, value)
-        })
-
-        if let publicToken = lookup["public_token"], !publicToken.isEmpty {
-            onComplete(.success(publicToken))
-            return
+        // Hosted Link fires this redirect whether the user succeeded or exited,
+        // and it does NOT carry the public_token — fetch the session result
+        // from the backend to find out what actually happened.
+        Task { [linkToken, onComplete] in
+            do {
+                let session = try await PlaidAPI.getLinkSession(linkToken: linkToken)
+                await MainActor.run {
+                    if let token = session.publicToken, !token.isEmpty {
+                        onComplete(.success(token))
+                    } else {
+                        // Session finished without an added item → user exited.
+                        onComplete(.failure(.cancelled))
+                    }
+                }
+            } catch {
+                await MainActor.run { onComplete(.failure(.underlying(error))) }
+            }
         }
-
-        if let errCode = lookup["error_code"] {
-            onComplete(.failure(.plaid(code: errCode, message: lookup["error_message"])))
-            return
-        }
-
-        if lookup["link_session_id"] != nil {
-            // Plaid redirects here on exit-without-public_token too.
-            onComplete(.failure(.cancelled))
-            return
-        }
-
-        onComplete(.failure(.missingPublicToken))
     }
 }

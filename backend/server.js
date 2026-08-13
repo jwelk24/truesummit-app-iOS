@@ -11,6 +11,10 @@ const {
     PLAID_COUNTRY_CODES = 'US',
     PLAID_LANGUAGE = 'en',
     PLAID_REDIRECT_URI,
+    // Custom-scheme URI Plaid Hosted Link redirects to when the in-app web view
+    // session finishes. Does NOT need to be registered in the Plaid Dashboard
+    // and does not point to a real location — the app intercepts it.
+    HOSTED_LINK_COMPLETION_URI = 'summit://plaid-complete',
     PORT = 8080,
 } = process.env;
 
@@ -46,7 +50,10 @@ app.get('/api/health', (_req, res) => {
 });
 
 // 1. Create a Hosted Link token. App opens the returned hosted_link_url in a
-// WKWebView and watches for redirect to PLAID_REDIRECT_URI?public_token=...
+// WKWebView. On completion Plaid redirects the web view to
+// HOSTED_LINK_COMPLETION_URI (a custom scheme) — the app detects that, then
+// calls /api/link/token/get to retrieve the public_token. Note: for Hosted
+// Link the public_token is NOT delivered via the frontend redirect.
 app.post('/api/link/token/create', async (req, res) => {
     try {
         const clientUserId = req.body?.clientUserId ?? 'summit-local-user';
@@ -56,15 +63,50 @@ app.post('/api/link/token/create', async (req, res) => {
             products,
             country_codes: countryCodes,
             language: PLAID_LANGUAGE,
+            // Plaid requires redirect_uri to also be set when
+            // hosted_link.is_mobile_app is true. (In production this must be a
+            // real OAuth redirect URI registered in the Plaid Dashboard.)
             redirect_uri: PLAID_REDIRECT_URI,
-            hosted_link: {},
+            hosted_link: {
+                completion_redirect_uri: HOSTED_LINK_COMPLETION_URI,
+                is_mobile_app: true,
+            },
         });
         res.json({
             linkToken: response.data.link_token,
             hostedLinkUrl: response.data.hosted_link_url,
             expiration: response.data.expiration,
-            redirectUri: PLAID_REDIRECT_URI,
+            completionRedirectUri: HOSTED_LINK_COMPLETION_URI,
         });
+    } catch (e) {
+        sendPlaidError(res, e);
+    }
+});
+
+// 1b. Retrieve the results of a Hosted Link session. The public_token lives at
+// link_sessions[].results.item_add_results[].public_token (legacy:
+// link_sessions[].on_success.public_token). Retries briefly because the
+// session may not be recorded the instant the completion redirect fires.
+app.post('/api/link/token/get', async (req, res) => {
+    try {
+        const { linkToken } = req.body ?? {};
+        if (!linkToken) return res.status(400).json({ error: 'linkToken required' });
+        let publicToken = null;
+        let finishedAt = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+            const response = await plaid.linkTokenGet({ link_token: linkToken });
+            const session = response.data.link_sessions?.[0];
+            finishedAt = session?.finished_at ?? null;
+            publicToken =
+                session?.results?.item_add_results?.[0]?.public_token ??
+                session?.on_success?.public_token ??
+                null;
+            // Stop once we have a token, or the session finished without one
+            // (user exited before adding an item).
+            if (publicToken || finishedAt) break;
+            await new Promise(r => setTimeout(r, 1000));
+        }
+        res.json({ publicToken, finishedAt });
     } catch (e) {
         sendPlaidError(res, e);
     }

@@ -106,11 +106,11 @@ struct PlaidConnectionsView: View {
         do {
             let response = try await PlaidAPI.createLinkToken()
             guard let hostedURL = URL(string: response.hostedLinkUrl),
-                  let redirect = response.redirectUri.flatMap(URL.init(string:)) else {
+                  let redirect = response.completionRedirectUri.flatMap(URL.init(string:)) else {
                 status = StatusMessage(text: "Backend returned an invalid link URL.", isError: true)
                 return
             }
-            linkSession = PlaidLinkSession(hostedLinkURL: hostedURL, redirectURL: redirect)
+            linkSession = PlaidLinkSession(hostedLinkURL: hostedURL, completionRedirectURL: redirect, linkToken: response.linkToken)
         } catch {
             status = StatusMessage(text: "Could not start Plaid Link: \(error.localizedDescription)", isError: true)
         }
@@ -218,7 +218,8 @@ private struct ItemRow: View {
 struct PlaidLinkSession: Identifiable {
     let id = UUID()
     let hostedLinkURL: URL
-    let redirectURL: URL
+    let completionRedirectURL: URL
+    let linkToken: String
 }
 
 private struct StatusMessage {
@@ -247,7 +248,8 @@ struct PlaidLinkSheet: View {
             Divider()
             PlaidLinkView(
                 hostedLinkURL: session.hostedLinkURL,
-                redirectURL: session.redirectURL,
+                completionRedirectURL: session.completionRedirectURL,
+                linkToken: session.linkToken,
                 onComplete: { result in
                     onResult(result)
                     dismiss()
@@ -259,7 +261,8 @@ struct PlaidLinkSheet: View {
         NavigationStack {
             PlaidLinkView(
                 hostedLinkURL: session.hostedLinkURL,
-                redirectURL: session.redirectURL,
+                completionRedirectURL: session.completionRedirectURL,
+                linkToken: session.linkToken,
                 onComplete: { result in
                     onResult(result)
                     dismiss()

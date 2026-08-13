@@ -1,0 +1,8 @@
+project_id = "eebpmgilbguussctttgl"
+
+# The Plaid proxy currently authenticates via the per-item X-Plaid-Access-Token
+# header only (parity with the old Node backend). verify_jwt is disabled so the
+# app can call it without a Supabase session bearer. FOLLOW-UP: gate this behind
+# the logged-in user's JWT and move access-token storage server-side.
+[functions.plaid]
+verify_jwt = false

@@ -5,7 +5,7 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>SummitPlaidBackendURL</key>
-	<string>https://summit-backend-rszx.onrender.com</string>
+	<string>https://eebpmgilbguussctttgl.supabase.co/functions/v1/plaid</string>
 	<key>NSFinancialDataUsageDescription</key>
 	<string>TrueSummit imports your Apple Card, Apple Cash, and Savings activity so your budget and net worth stay up to date. This data stays on your device.</string>
 	<key>NSFaceIDUsageDescription</key>
