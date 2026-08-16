@@ -80,7 +80,18 @@ struct PlaidAPI {
     // MARK: Endpoints
 
     static func createLinkToken() async throws -> LinkTokenResponse {
-        try await post(path: "/api/link/token/create", body: [String: String]())
+        struct Body: Encodable {
+            let clientUserId: String?
+            let platform: String
+        }
+        // Identify the Plaid user by the Supabase user id so items aren't all
+        // conflated under one client_user_id. `platform` lets the shared Edge
+        // Function pick the iOS Hosted Link flow (vs Android's native SDK).
+        let clientUserId = await MainActor.run { SupabaseService.shared.currentUserID?.uuidString }
+        return try await post(
+            path: "/api/link/token/create",
+            body: Body(clientUserId: clientUserId, platform: "ios")
+        )
     }
 
     static func exchangePublicToken(_ publicToken: String) async throws -> ExchangeResponse {

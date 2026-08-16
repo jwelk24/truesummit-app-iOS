@@ -16,13 +16,14 @@
 //
 // Secrets (set via `supabase secrets set`): PLAID_CLIENT_ID, PLAID_SECRET,
 // PLAID_ENV, PLAID_PRODUCTS, PLAID_COUNTRY_CODES, PLAID_LANGUAGE,
-// PLAID_REDIRECT_URI, HOSTED_LINK_COMPLETION_URI.
+// PLAID_REDIRECT_URI, HOSTED_LINK_COMPLETION_URI, PLAID_ANDROID_PACKAGE_NAME.
 import {
     Configuration,
     PlaidApi,
     PlaidEnvironments,
     Products,
     CountryCode,
+    LinkTokenCreateRequest,
 } from "npm:plaid@28";
 
 const PLAID_CLIENT_ID = Deno.env.get("PLAID_CLIENT_ID");
@@ -34,6 +35,11 @@ const PLAID_LANGUAGE = Deno.env.get("PLAID_LANGUAGE") ?? "en";
 const PLAID_REDIRECT_URI = Deno.env.get("PLAID_REDIRECT_URI");
 const HOSTED_LINK_COMPLETION_URI =
     Deno.env.get("HOSTED_LINK_COMPLETION_URI") ?? "summit://plaid-complete";
+// Android's native Link SDK returns from OAuth via the app's package name.
+// Kept server-side (not read from the request body) on purpose: a client-
+// supplied package name would let anyone mint a link token pointing at their
+// own app.
+const PLAID_ANDROID_PACKAGE_NAME = Deno.env.get("PLAID_ANDROID_PACKAGE_NAME");
 
 if (!PLAID_CLIENT_ID || !PLAID_SECRET) {
     console.error("Missing PLAID_CLIENT_ID or PLAID_SECRET secrets.");
@@ -51,10 +57,15 @@ const plaid = new PlaidApi(
     }),
 );
 
+// String-keyed views of the enums so the lookups below index by string
+// without a noImplicitAny error under `deno check`. Runtime behaviour is
+// unchanged — the enum values already equal the Plaid product/country strings.
+const productsByKey = Products as unknown as Record<string, Products>;
+const countryCodesByKey = CountryCode as unknown as Record<string, CountryCode>;
 const products = PLAID_PRODUCTS.split(",").map((s) => s.trim()).filter(Boolean)
-    .map((p) => Products[Object.keys(Products).find((k) => Products[k] === p) ?? p] ?? p);
+    .map((p) => productsByKey[Object.keys(Products).find((k) => productsByKey[k] === p) ?? p] ?? (p as Products));
 const countryCodes = PLAID_COUNTRY_CODES.split(",").map((s) => s.trim()).filter(Boolean)
-    .map((c) => CountryCode[Object.keys(CountryCode).find((k) => CountryCode[k] === c) ?? c] ?? c);
+    .map((c) => countryCodesByKey[Object.keys(CountryCode).find((k) => countryCodesByKey[k] === c) ?? c] ?? (c as CountryCode));
 
 const CORS = {
     "Access-Control-Allow-Origin": "*",
@@ -96,24 +107,56 @@ Deno.serve(async (req) => {
         }
 
         if (req.method === "POST" && path === "/api/link/token/create") {
-            const clientUserId = body?.clientUserId ?? "summit-local-user";
-            const response = await plaid.linkTokenCreate({
+            // Accept either spelling: iOS sends clientUserId, Android currently
+            // sends user_id. Before this, a non-clientUserId body was discarded
+            // and every such user was created as the same Plaid user. The
+            // fallback keeps older clients working so this deploys ahead of any
+            // app release.
+            const clientUserId = body?.clientUserId ?? body?.user_id ?? "summit-local-user";
+
+            // The apps drive different Plaid flows, and the parameters are
+            // mutually exclusive:
+            //   iOS     — Hosted Link in a web view: redirect_uri plus
+            //             hosted_link.completion_redirect_uri.
+            //   Android — the native Link SDK, whose OAuth handoff returns via
+            //             the package name. Plaid rejects redirect_uri sent
+            //             alongside android_package_name.
+            // Platform is absent on older clients, which keeps the previous iOS
+            // behaviour, so this deploys safely ahead of any app release.
+            const isAndroid = String(body?.platform ?? "").toLowerCase() === "android";
+            if (isAndroid && !PLAID_ANDROID_PACKAGE_NAME) {
+                return json({ error: "PLAID_ANDROID_PACKAGE_NAME secret is not set." }, 500);
+            }
+
+            // Typed (not Record<string, unknown>) so TypeScript still validates
+            // field names against Plaid's request shape after the dynamic
+            // branching below — a typo like `andriod_package_name` fails to
+            // compile rather than at runtime against production Plaid.
+            const linkRequest: LinkTokenCreateRequest = {
                 user: { client_user_id: clientUserId },
                 client_name: "TrueSummit",
                 products,
                 country_codes: countryCodes,
                 language: PLAID_LANGUAGE,
-                redirect_uri: PLAID_REDIRECT_URI,
-                hosted_link: {
+            };
+
+            if (isAndroid) {
+                linkRequest.android_package_name = PLAID_ANDROID_PACKAGE_NAME;
+            } else {
+                linkRequest.redirect_uri = PLAID_REDIRECT_URI;
+                linkRequest.hosted_link = {
                     completion_redirect_uri: HOSTED_LINK_COMPLETION_URI,
                     is_mobile_app: true,
-                },
-            });
+                };
+            }
+
+            const response = await plaid.linkTokenCreate(linkRequest);
             return json({
                 linkToken: response.data.link_token,
-                hostedLinkUrl: response.data.hosted_link_url,
+                // Absent on Android: that flow creates no hosted link.
+                hostedLinkUrl: response.data.hosted_link_url ?? null,
                 expiration: response.data.expiration,
-                completionRedirectUri: HOSTED_LINK_COMPLETION_URI,
+                completionRedirectUri: isAndroid ? null : HOSTED_LINK_COMPLETION_URI,
             });
         }
 
