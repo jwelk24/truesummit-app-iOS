@@ -84,7 +84,7 @@
          <EnvironmentVariable
             key = "PLAID_BACKEND_URL"
             value = "http://localhost:8080"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </EnvironmentVariable>
       </EnvironmentVariables>
    </LaunchAction>
