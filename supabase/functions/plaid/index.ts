@@ -29,7 +29,15 @@ import {
 const PLAID_CLIENT_ID = Deno.env.get("PLAID_CLIENT_ID");
 const PLAID_SECRET = Deno.env.get("PLAID_SECRET");
 const PLAID_ENV = Deno.env.get("PLAID_ENV") ?? "sandbox";
+// Required products. Anything listed here gates account selection in Link: with
+// investments required, Link rejects a checking account for "not being an
+// investment account". Keep this to what the app cannot work without.
 const PLAID_PRODUCTS = Deno.env.get("PLAID_PRODUCTS") ?? "transactions";
+// Fetched when the institution and the chosen accounts support them, and
+// silently skipped otherwise — so holdings and liabilities still populate for
+// brokerage and card accounts without blocking a plain checking link.
+const PLAID_OPTIONAL_PRODUCTS =
+    Deno.env.get("PLAID_OPTIONAL_PRODUCTS") ?? "investments,liabilities";
 const PLAID_COUNTRY_CODES = Deno.env.get("PLAID_COUNTRY_CODES") ?? "US";
 const PLAID_LANGUAGE = Deno.env.get("PLAID_LANGUAGE") ?? "en";
 const PLAID_REDIRECT_URI = Deno.env.get("PLAID_REDIRECT_URI");
@@ -63,6 +71,8 @@ const plaid = new PlaidApi(
 const productsByKey = Products as unknown as Record<string, Products>;
 const countryCodesByKey = CountryCode as unknown as Record<string, CountryCode>;
 const products = PLAID_PRODUCTS.split(",").map((s) => s.trim()).filter(Boolean)
+    .map((p) => productsByKey[Object.keys(Products).find((k) => productsByKey[k] === p) ?? p] ?? (p as Products));
+const optionalProducts = PLAID_OPTIONAL_PRODUCTS.split(",").map((s) => s.trim()).filter(Boolean)
     .map((p) => productsByKey[Object.keys(Products).find((k) => productsByKey[k] === p) ?? p] ?? (p as Products));
 const countryCodes = PLAID_COUNTRY_CODES.split(",").map((s) => s.trim()).filter(Boolean)
     .map((c) => countryCodesByKey[Object.keys(CountryCode).find((k) => countryCodesByKey[k] === c) ?? c] ?? (c as CountryCode));
@@ -139,6 +149,7 @@ Deno.serve(async (req) => {
                 country_codes: countryCodes,
                 language: PLAID_LANGUAGE,
             };
+            if (optionalProducts.length) linkRequest.optional_products = optionalProducts;
 
             if (isAndroid) {
                 linkRequest.android_package_name = PLAID_ANDROID_PACKAGE_NAME;
