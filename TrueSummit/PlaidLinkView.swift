@@ -58,7 +58,7 @@ private struct PlaidLinkWebView: UIViewRepresentable {
     var onComplete: (Result<String, PlaidLinkError>) -> Void
 
     func makeCoordinator() -> PlaidLinkWebCoordinator {
-        PlaidLinkWebCoordinator(completionRedirectURL: completionRedirectURL, linkToken: linkToken, onComplete: onComplete)
+        PlaidLinkWebCoordinator(hostedLinkURL: hostedLinkURL, completionRedirectURL: completionRedirectURL, linkToken: linkToken, onComplete: onComplete)
     }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -80,7 +80,7 @@ private struct PlaidLinkWebView: NSViewRepresentable {
     var onComplete: (Result<String, PlaidLinkError>) -> Void
 
     func makeCoordinator() -> PlaidLinkWebCoordinator {
-        PlaidLinkWebCoordinator(completionRedirectURL: completionRedirectURL, linkToken: linkToken, onComplete: onComplete)
+        PlaidLinkWebCoordinator(hostedLinkURL: hostedLinkURL, completionRedirectURL: completionRedirectURL, linkToken: linkToken, onComplete: onComplete)
     }
 
     func makeNSView(context: Context) -> WKWebView {
@@ -96,12 +96,15 @@ private struct PlaidLinkWebView: NSViewRepresentable {
 #endif
 
 private final class PlaidLinkWebCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+    let hostedLinkURL: URL
     let completionRedirectURL: URL
     let linkToken: String
     let onComplete: (Result<String, PlaidLinkError>) -> Void
     private var finished = false
+    private var rendererTerminations = 0
 
-    init(completionRedirectURL: URL, linkToken: String, onComplete: @escaping (Result<String, PlaidLinkError>) -> Void) {
+    init(hostedLinkURL: URL, completionRedirectURL: URL, linkToken: String, onComplete: @escaping (Result<String, PlaidLinkError>) -> Void) {
+        self.hostedLinkURL = hostedLinkURL
         self.completionRedirectURL = completionRedirectURL
         self.linkToken = linkToken
         self.onComplete = onComplete
@@ -142,6 +145,30 @@ private final class PlaidLinkWebCoordinator: NSObject, WKNavigationDelegate, WKU
             webView.load(URLRequest(url: url))
         }
         return nil
+    }
+
+    // WebKit's WebContent renderer runs out-of-process and can be terminated
+    // by the system (frequently on the iOS Simulator, often just memory
+    // reclamation). Without this the web view is left blank with no recovery,
+    // which reads as a crash mid-bank-sign-in. Reload to recover, capping
+    // retries so a page that reliably kills the renderer can't loop forever.
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        guard !finished else { return }
+        rendererTerminations += 1
+        guard rendererTerminations <= 3 else {
+            finished = true
+            onComplete(.failure(.underlying(
+                NSError(domain: "PlaidLinkView", code: -1, userInfo: [
+                    NSLocalizedDescriptionKey: "The bank page kept reloading. Please try connecting again."
+                ])
+            )))
+            return
+        }
+        if webView.url != nil {
+            webView.reload()
+        } else {
+            webView.load(URLRequest(url: hostedLinkURL))
+        }
     }
 
     private func matchesRedirect(_ url: URL) -> Bool {
