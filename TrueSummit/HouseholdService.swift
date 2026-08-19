@@ -6,6 +6,11 @@ struct Household: Decodable, Identifiable, Sendable {
     let name: String
     let owner_user_id: UUID
     let created_at: Date
+    /// Server-verified subscription coverage for this household, written only by
+    /// the `verify-entitlement` Edge Function. Optional so older rows (and the
+    /// insert path) decode cleanly.
+    let plan_tier: String?
+    let plan_valid_until: Date?
 }
 
 struct HouseholdMembership: Decodable, Sendable {
@@ -75,6 +80,7 @@ final class HouseholdService {
         guard let userID = SupabaseService.shared.currentUserID else {
             currentHousehold = nil
             currentRole = nil
+            Entitlements.shared.setHouseholdCoverage(nil, until: nil)
             return
         }
         isLoading = true
@@ -91,6 +97,7 @@ final class HouseholdService {
             guard let primary = memberships.first else {
                 currentHousehold = nil
                 currentRole = nil
+                Entitlements.shared.setHouseholdCoverage(nil, until: nil)
                 return
             }
 
@@ -103,10 +110,26 @@ final class HouseholdService {
 
             currentHousehold = households.first
             currentRole = HouseholdRole(rawValue: primary.role)
+            applyHouseholdCoverage(for: userID)
             lastError = nil
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    /// Grants entitlement coverage when the current user is a *guest* (didn't
+    /// create the household) and the owner's server-verified plan is present and
+    /// unexpired. Owners get their access from their own StoreKit purchase, so
+    /// they never inherit coverage (and never lock themselves out here).
+    private func applyHouseholdCoverage(for userID: UUID) {
+        guard let h = currentHousehold,
+              h.owner_user_id != userID,
+              let raw = h.plan_tier, let tier = SubscriptionTier(rawValue: raw),
+              let until = h.plan_valid_until, until > Date() else {
+            Entitlements.shared.setHouseholdCoverage(nil, until: nil)
+            return
+        }
+        Entitlements.shared.setHouseholdCoverage(tier, until: until)
     }
 
     /// Upserts the current user's display profile so household members can see a

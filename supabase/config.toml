@@ -6,3 +6,9 @@ project_id = "eebpmgilbguussctttgl"
 # the logged-in user's JWT and move access-token storage server-side.
 [functions.plaid]
 verify_jwt = false
+
+# Entitlement verification requires the caller's identity, so the JWT is
+# enforced: the function reads auth.uid() from the session to know whose
+# household(s) to stamp, and binds the receipt to that user via appAccountToken.
+[functions.verify-entitlement]
+verify_jwt = true

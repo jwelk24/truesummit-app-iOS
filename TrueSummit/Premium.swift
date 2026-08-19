@@ -67,6 +67,13 @@ enum SubscriptionPeriod {
 fileprivate let entitlementTierKey = "entitlement.tier"
 fileprivate let entitlementTrialKey = "entitlement.trialExpiresAt"
 fileprivate let entitlementTrialStartedKey = "entitlement.trialStarted"
+// Coverage inherited from a household whose *owner* holds a paid tier (the
+// "owner pays for the family" path). Written from `HouseholdService.refresh`
+// after reading the server-verified `plan_tier`/`plan_valid_until` on the
+// household row, and mirrored here so the non-isolated `Premium` shim can see
+// it. The `until` key lets coverage self-expire even offline.
+fileprivate let householdCoverageTierKey = "entitlement.householdCoverageTier"
+fileprivate let householdCoverageUntilKey = "entitlement.householdCoverageUntil"
 
 // MARK: - Entitlements
 
@@ -87,22 +94,41 @@ final class Entitlements {
     /// kicks in on first launch.
     private(set) var hasStartedTrial: Bool
 
+    /// Tier and expiry inherited from a household whose owner pays. Populated by
+    /// `HouseholdService` from the server-verified household row; only the
+    /// `verify-entitlement` Edge Function can set the underlying value, so this
+    /// can't be spoofed locally.
+    private(set) var householdCoverageTierRaw: SubscriptionTier?
+    private(set) var householdCoverageUntil: Date?
+
     private init() {
         let defaults = UserDefaults.standard
         self.paidTier = defaults.string(forKey: entitlementTierKey).flatMap(SubscriptionTier.init(rawValue:))
         self.trialExpiresAt = defaults.object(forKey: entitlementTrialKey) as? Date
         self.hasStartedTrial = defaults.bool(forKey: entitlementTrialStartedKey)
+        self.householdCoverageTierRaw = defaults.string(forKey: householdCoverageTierKey).flatMap(SubscriptionTier.init(rawValue:))
+        self.householdCoverageUntil = defaults.object(forKey: householdCoverageUntilKey) as? Date
+    }
+
+    /// Household coverage, but only while unexpired — so a stale cached value
+    /// (owner lapsed, we haven't re-synced) stops granting access on its own.
+    var householdCoverageTier: SubscriptionTier? {
+        guard let tier = householdCoverageTierRaw,
+              let until = householdCoverageUntil, until > Date() else { return nil }
+        return tier
     }
 
     // MARK: Access resolution
 
-    /// The tier that governs feature access right now: an active paid tier if
-    /// there is one, otherwise Pro while the trial is live, otherwise nil —
-    /// meaning the user is locked out (trial over, nothing purchased).
+    /// The tier that governs feature access right now: the highest of the user's
+    /// own paid tier, coverage inherited from a household whose owner pays, and
+    /// Pro while the trial is live — or nil, meaning locked out (trial over,
+    /// nothing purchased, no covering household).
     var effectiveTier: SubscriptionTier? {
-        if let paidTier { return paidTier }
-        if isInTrial { return .pro }
-        return nil
+        let trial: SubscriptionTier? = isInTrial ? .pro : nil
+        return [paidTier, householdCoverageTier, trial]
+            .compactMap { $0 }
+            .max { $0.rank < $1.rank }
     }
 
     /// True when the user may use the app at all (paid or in an active trial).
@@ -181,6 +207,24 @@ final class Entitlements {
     func clearPaidTier() {
         paidTier = nil
         UserDefaults.standard.removeObject(forKey: entitlementTierKey)
+    }
+
+    /// Sets (or clears) coverage inherited from a paying household owner. Pass
+    /// nil for both to clear. Persisted so it survives launch and is visible to
+    /// the non-isolated `Premium` shim.
+    func setHouseholdCoverage(_ tier: SubscriptionTier?, until: Date?) {
+        let defaults = UserDefaults.standard
+        if let tier, let until {
+            householdCoverageTierRaw = tier
+            householdCoverageUntil = until
+            defaults.set(tier.rawValue, forKey: householdCoverageTierKey)
+            defaults.set(until, forKey: householdCoverageUntilKey)
+        } else {
+            householdCoverageTierRaw = nil
+            householdCoverageUntil = nil
+            defaults.removeObject(forKey: householdCoverageTierKey)
+            defaults.removeObject(forKey: householdCoverageUntilKey)
+        }
     }
 
     /// Starts the one-time 30-day Pro trial on first launch. No-op once a trial
@@ -283,6 +327,11 @@ enum Premium {
         let defaults = UserDefaults.standard
         // Active paid subscription?
         if defaults.string(forKey: entitlementTierKey) != nil { return true }
+        // Coverage from a paying household owner, while still valid?
+        if defaults.string(forKey: householdCoverageTierKey) != nil,
+           let until = defaults.object(forKey: householdCoverageUntilKey) as? Date, until > Date() {
+            return true
+        }
         // Or a trial that hasn't expired yet?
         if let exp = defaults.object(forKey: entitlementTrialKey) as? Date, exp > Date() { return true }
         return false

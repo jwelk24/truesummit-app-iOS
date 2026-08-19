@@ -1,5 +1,12 @@
 import Foundation
 import StoreKit
+import Supabase
+
+/// Body for the `verify-entitlement` Edge Function. A nil `signedTransaction`
+/// (encoded as an omitted key) means "no active subscription — clear coverage".
+private struct EntitlementPublish: Encodable {
+    let signedTransaction: String?
+}
 
 /// Single source of truth for StoreKit 2 interaction. Loads products,
 /// listens for transaction updates, and writes the resolved tier into
@@ -89,12 +96,20 @@ final class StoreKitService {
         purchaseInProgress = true
         defer { purchaseInProgress = false }
         do {
-            let result = try await product.purchase()
+            // Bind the purchase to the signed-in user so the server can prove the
+            // receipt belongs to them (see verify-entitlement). Without a session
+            // we still purchase; household coverage just won't publish.
+            var options: Set<Product.PurchaseOption> = []
+            if let uid = SupabaseService.shared.currentUserID {
+                options.insert(.appAccountToken(uid))
+            }
+            let result = try await product.purchase(options: options)
             switch result {
             case .success(let verification):
                 let transaction = try checkVerified(verification)
                 applyTier(forProductID: transaction.productID, revoked: transaction.revocationDate != nil)
                 await transaction.finish()
+                await publishEntitlementToBackend()
             case .userCancelled, .pending:
                 break
             @unknown default:
@@ -138,6 +153,7 @@ final class StoreKitService {
         } else {
             Entitlements.shared.clearPaidTier()
         }
+        await publishEntitlementToBackend()
     }
 
     private func listenForTransactions() async {
@@ -145,6 +161,33 @@ final class StoreKitService {
             guard let transaction = try? checkVerified(update) else { continue }
             applyTier(forProductID: transaction.productID, revoked: transaction.revocationDate != nil)
             await transaction.finish()
+            await publishEntitlementToBackend()
+        }
+    }
+
+    /// Owner-pays plumbing: send our highest active subscription's signed JWS to
+    /// the `verify-entitlement` Edge Function, which verifies it with Apple and
+    /// stamps every household we own so guests can ride it. An empty payload
+    /// tells the server to clear coverage. Best-effort — the caller's own access
+    /// never depends on this succeeding.
+    private func publishEntitlementToBackend() async {
+        var bestJWS: String?
+        var bestRank = -1
+        for await result in Transaction.currentEntitlements {
+            guard case .verified(let tx) = result,
+                  tx.revocationDate == nil,
+                  let tier = SubscriptionTier(productID: tx.productID),
+                  tier.rank > bestRank else { continue }
+            bestRank = tier.rank
+            bestJWS = result.jwsRepresentation
+        }
+        do {
+            try await SupabaseService.shared.client.functions.invoke(
+                "verify-entitlement",
+                options: .init(body: EntitlementPublish(signedTransaction: bestJWS))
+            )
+        } catch {
+            lastError = error.localizedDescription
         }
     }
 
